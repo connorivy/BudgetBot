@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
 using Discord.Interactions;
-using BudgetBot.Services;
+using BudgetBot.Database;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Windows.Input;
@@ -21,6 +21,8 @@ namespace BudgetBot.Modules
   {
     private DiscordSocketClient _client;
     private readonly IConfiguration _config;
+    public readonly BudgetBotEntities _db;
+
 
     public BotCommands(IServiceProvider services)
     {
@@ -28,106 +30,137 @@ namespace BudgetBot.Modules
       // since we passed the services in, we can use GetRequiredService to pass them into the fields set earlier
       _client = services.GetRequiredService<DiscordSocketClient>();
       _config = services.GetRequiredService<IConfiguration>();
+      _db = services.GetRequiredService<BudgetBotEntities>();
     }
 
-    [SlashCommand("hello", "say hello")]
-    public async Task HelloCommand()
-    {
-      // initialize empty string builder for reply
-      var sb = new StringBuilder();
+    //[SlashCommand("hello", "say hello")]
+    //public async Task HelloCommand()
+    //{
+    //  // initialize empty string builder for reply
+    //  var sb = new StringBuilder();
 
-      // get user info from the Context
-      var user = Context.User;
+    //  // get user info from the Context
+    //  var user = Context.User;
 
-      // build out the reply
-      sb.AppendLine($"You are -> [{user.Username}]");
-      sb.AppendLine("I must now say, World!");
+    //  // build out the reply
+    //  sb.AppendLine($"You are -> [{user.Username}]");
+    //  sb.AppendLine("I must now say, World!");
 
-      // send simple string reply
-      await RespondAsync(sb.ToString());
-    }
+    //  // send simple string reply
+    //  await RespondAsync(sb.ToString());
+    //}
 
-    [SlashCommand("8ball", "find your answer!")]
-    [Discord.Interactions.RequireUserPermission(GuildPermission.KickMembers)]
-    public async Task AskEightBall(string question)
-    {
-      // I like using StringBuilder to build out the reply
-      var sb = new StringBuilder();
-      // let's use an embed for this one!
-      var embed = new EmbedBuilder();
+    //[SlashCommand("list", "list uncategorized transactions")]
+    //public async Task ListCommand()
+    //{
+    //  var sb = new StringBuilder();
+    //  var embed = new EmbedBuilder();
 
-      // now to create a list of possible replies
-      var replies = new List<string>();
+    //  // get user info from the Context
+    //  var user = Context.User;
 
-      // add our possible replies
-      replies.Add("yes");
-      replies.Add("no");
-      replies.Add("maybe");
-      replies.Add("hazzzzy....");
+    //  var transactions = await _db.Transactions.ToListAsync();
+    //  if (transactions.Count > 0)
+    //  {
+    //    foreach (var transaction in transactions)
+    //    {
+    //      sb.AppendLine($"{transaction.Amount} {transaction.Merchant}");
+    //    }
+    //  }
+    //  else
+    //  {
+    //    sb.AppendLine("No transactions found!");
+    //  }
 
-      // time to add some options to the embed (like color and title)
-      embed.WithColor(new Color(0, 255, 0));
-      embed.Title = "Welcome to the 8-ball!";
+    //  // set embed
+    //  embed.Title = "Transactions";
+    //  embed.Description = sb.ToString();
 
-      // we can get lots of information from the Context that is passed into the commands
-      // here I'm setting up the preface with the user's name and a comma
-      sb.AppendLine($"{Context.User.Username},");
-      sb.AppendLine();
+    //  // send embed reply
+    //  await ReplyAsync(null, false, embed.Build());
+    //}
 
-      // let's make sure the supplied question isn't null 
-      if (question == null)
-      {
-        // if no question is asked (question are null), reply with the below text
-        sb.AppendLine("Sorry, can't answer a question you didn't ask!");
-      }
-      else
-      {
-        // if we have a question, let's give an answer!
-        // get a random number to index our list with (arrays start at zero so we subtract 1 from the count)
-        var answer = replies[new Random().Next(replies.Count - 1)];
+    //[SlashCommand("8ball", "find your answer!")]
+    //[Discord.Interactions.RequireUserPermission(GuildPermission.KickMembers)]
+    //public async Task AskEightBall(string question)
+    //{
+    //  // I like using StringBuilder to build out the reply
+    //  var sb = new StringBuilder();
+    //  // let's use an embed for this one!
+    //  var embed = new EmbedBuilder();
 
-        // build out our reply with the handy StringBuilder
-        sb.AppendLine($"You asked: [**{question}**]...");
-        sb.AppendLine();
-        sb.AppendLine($"...your answer is [**{answer}**]");
+    //  // now to create a list of possible replies
+    //  var replies = new List<string>();
 
-        // bonus - let's switch out the reply and change the color based on it
-        switch (answer)
-        {
-          case "yes":
-            {
-              embed.WithColor(new Color(0, 255, 0));
-              break;
-            }
-          case "no":
-            {
-              embed.WithColor(new Color(255, 0, 0));
-              break;
-            }
-          case "maybe":
-            {
-              embed.WithColor(new Color(255, 255, 0));
-              break;
-            }
-          case "hazzzzy....":
-            {
-              embed.WithColor(new Color(255, 0, 255));
-              break;
-            }
-        }
-      }
+    //  // add our possible replies
+    //  replies.Add("yes");
+    //  replies.Add("no");
+    //  replies.Add("maybe");
+    //  replies.Add("hazzzzy....");
 
-      // now we can assign the description of the embed to the contents of the StringBuilder we created
-      embed.Description = sb.ToString();
+    //  // time to add some options to the embed (like color and title)
+    //  embed.WithColor(new Color(0, 255, 0));
+    //  embed.Title = "Welcome to the 8-ball!";
 
-      //Embed[] x = new Embed[] { embed.Build() };
+    //  // we can get lots of information from the Context that is passed into the commands
+    //  // here I'm setting up the preface with the user's name and a comma
+    //  sb.AppendLine($"{Context.User.Username},");
+    //  sb.AppendLine();
 
-      // this will reply with the embed
-      await RespondAsync("", new Embed[] { embed.Build() });
-      //await ReplyAsync(null, false, embed.Build());
-    }
+    //  // let's make sure the supplied question isn't null 
+    //  if (question == null)
+    //  {
+    //    // if no question is asked (question are null), reply with the below text
+    //    sb.AppendLine("Sorry, can't answer a question you didn't ask!");
+    //  }
+    //  else
+    //  {
+    //    // if we have a question, let's give an answer!
+    //    // get a random number to index our list with (arrays start at zero so we subtract 1 from the count)
+    //    var answer = replies[new Random().Next(replies.Count - 1)];
 
-    public async Task NotifyOfTransaction(string creditCardEnding, string transactionAmount, string merchant, DateTimeOffset? date)
+    //    // build out our reply with the handy StringBuilder
+    //    sb.AppendLine($"You asked: [**{question}**]...");
+    //    sb.AppendLine();
+    //    sb.AppendLine($"...your answer is [**{answer}**]");
+
+    //    // bonus - let's switch out the reply and change the color based on it
+    //    switch (answer)
+    //    {
+    //      case "yes":
+    //        {
+    //          embed.WithColor(new Color(0, 255, 0));
+    //          break;
+    //        }
+    //      case "no":
+    //        {
+    //          embed.WithColor(new Color(255, 0, 0));
+    //          break;
+    //        }
+    //      case "maybe":
+    //        {
+    //          embed.WithColor(new Color(255, 255, 0));
+    //          break;
+    //        }
+    //      case "hazzzzy....":
+    //        {
+    //          embed.WithColor(new Color(255, 0, 255));
+    //          break;
+    //        }
+    //    }
+    //  }
+
+    //  // now we can assign the description of the embed to the contents of the StringBuilder we created
+    //  embed.Description = sb.ToString();
+
+    //  //Embed[] x = new Embed[] { embed.Build() };
+
+    //  // this will reply with the embed
+    //  await RespondAsync("", new Embed[] { embed.Build() });
+    //  //await ReplyAsync(null, false, embed.Build());
+    //}
+
+    public async Task NotifyOfTransaction(string creditCardEnding, decimal transactionAmount, string merchant, DateTimeOffset? date)
     {
       try
       {
@@ -136,10 +169,20 @@ namespace BudgetBot.Modules
 
         embed.Title = "New Transaction";
         sb.AppendLine($"Credit Card Ending:\t{creditCardEnding}");
-        sb.AppendLine($"Amount:\t\t{transactionAmount}");
+        sb.AppendLine($"Amount:\t\t${transactionAmount}");
         sb.AppendLine($"Merchant:\t\t{merchant}");
         sb.AppendLine($"Date:\t\t{date}");
         embed.Description = sb.ToString();
+
+        await _db.AddAsync(new Transaction
+        {
+          PaymentMethod = creditCardEnding,
+          Amount = transactionAmount,
+          Merchant = merchant,
+          Date = date ?? DateTimeOffset.Now
+        });
+        // save changes to database
+        await _db.SaveChangesAsync();
 
         var guildId = Convert.ToUInt64(_config["TEST_GUILD_ID"]);
         var guild = _client.GetGuild(guildId);
@@ -158,10 +201,10 @@ namespace BudgetBot.Modules
     {
       var channel = guild.Channels.SingleOrDefault(x => x.Name == "budgeting");
 
-      if (channel == null) // there is no channel with the name of 'log'
+      if (channel == null) // there is no channel with the name of 'budgeting'
       {
         // create the channel
-        var newChannel = await Context.Guild.CreateTextChannelAsync("log");
+        var newChannel = await Context.Guild.CreateTextChannelAsync("budgeting");
         return newChannel.Id;
       }
       else

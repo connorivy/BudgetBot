@@ -134,7 +134,7 @@ namespace BudgetBot.Services
         doc.LoadHtml(html.Text);
 
         string creditCardEnding = null;
-        string transactionAmount = null;
+        decimal transactionAmount = 0;
         string merchant = null;
 
         switch (message.Envelope.From.Mailboxes.FirstOrDefault().Address)
@@ -149,7 +149,8 @@ namespace BudgetBot.Services
                   if (table.ChildNodes.Count == 4)
                   {
                     creditCardEnding = table.ChildNodes[0].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Trim();
-                    transactionAmount = table.ChildNodes[1].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Trim();
+                    var transactionAmountString = table.ChildNodes[1].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Replace("$","").Trim();
+                    transactionAmount = Convert.ToDecimal(transactionAmountString);
                     merchant = table.ChildNodes[2].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Trim();
                   }
                 }

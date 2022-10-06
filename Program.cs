@@ -12,6 +12,7 @@ using System.Linq;
 using Serilog;
 using Discord.Interactions;
 using BudgetBot.Modules;
+using BudgetBot.Database;
 
 namespace BudgetBot
 {
@@ -115,7 +116,9 @@ namespace BudgetBot
           .AddSingleton<CommandHandler>()
           .AddSingleton<LoggingService>()
           .AddSingleton<BotCommands>()
+          .AddSingleton<TransactionCommands>()
           .AddSingleton<MailListener>()
+          .AddDbContext<BudgetBotEntities>()
           .AddLogging(configure => configure.AddSerilog());
 
       if (!string.IsNullOrEmpty(_logLevel))

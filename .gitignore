@@ -16,3 +16,7 @@ bld/
 # .NET
 config.json
 .vs/
+
+# DB
+*.db
+[Mm]igrations/
