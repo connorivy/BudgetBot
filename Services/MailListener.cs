@@ -93,7 +93,7 @@ namespace BudgetBot.Services
       {
         await client.AuthenticateAsync(username, password, cancel.Token);
 
-        await client.Inbox.OpenAsync(FolderAccess.ReadOnly, cancel.Token);
+        await client.Inbox.OpenAsync(FolderAccess.ReadWrite, cancel.Token);
       }
     }
 
@@ -123,6 +123,7 @@ namespace BudgetBot.Services
         }
       } while (true);
 
+      //client.Inbox.Open(MailKit.FolderAccess.ReadWrite);
       foreach (var message in fetched)
       {
         if (message.Flags == MessageFlags.Seen)
@@ -165,16 +166,12 @@ namespace BudgetBot.Services
             break;
         }
 
-        //await _botCommands.NotifyOfTransaction(creditCardEnding, transactionAmount, merchant, message.Envelope.Date);
-        client.Inbox.AddFlags(message.Index, MessageFlags.Seen, true);
+        if (creditCardEnding != null)
+          await _botCommands.NotifyOfTransaction(creditCardEnding, transactionAmount, merchant, message.Envelope.Date);
 
-        //await commands.NotifyOfTransaction(_client);
-        Console.WriteLine($"html -------> {html}");
-        Console.WriteLine($"note -------> {html.Text}");
-        if (print)
-          Console.WriteLine("{0}: new message: {1}", client.Inbox, message.Envelope.Subject);
-        messages.Add(message);
+        client.Inbox.AddFlags(message.Index, MessageFlags.Seen, true);
       }
+      //await client.Inbox.OpenAsync(FolderAccess.ReadOnly, cancel.Token);
     }
 
     async Task WaitForNewMessagesAsync()

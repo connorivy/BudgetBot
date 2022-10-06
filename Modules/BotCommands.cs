@@ -12,7 +12,6 @@ using Discord.Interactions;
 using BudgetBot.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using static Org.BouncyCastle.Math.EC.ECCurve;
 using System.Windows.Input;
 
 namespace BudgetBot.Modules
@@ -132,13 +131,23 @@ namespace BudgetBot.Modules
     {
       try
       {
+        var sb = new StringBuilder();
+        var embed = new EmbedBuilder();
+
+        embed.Title = "New Transaction";
+        sb.AppendLine($"Credit Card Ending:\t{creditCardEnding}");
+        sb.AppendLine($"Amount:\t\t{transactionAmount}");
+        sb.AppendLine($"Merchant:\t\t{merchant}");
+        sb.AppendLine($"Date:\t\t{date}");
+        embed.Description = sb.ToString();
+
         var guildId = Convert.ToUInt64(_config["TEST_GUILD_ID"]);
         var guild = _client.GetGuild(guildId);
         var channelId = await GetChannel(guild);
 
         var channel = guild.GetTextChannel(channelId);
 
-        await channel.SendMessageAsync($"NEW TRANSACTION! \nCredit Card Ending:\t{creditCardEnding}\nAmount:\t{transactionAmount}\nMerchant:\t{merchant}\nDate:\t{date}");
+        await channel.SendMessageAsync("", false, embed.Build());
       }
       catch (Exception ex)
       { }
