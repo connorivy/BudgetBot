@@ -123,7 +123,6 @@ namespace BudgetBot.Services
         }
       } while (true);
 
-      //client.Inbox.Open(MailKit.FolderAccess.ReadWrite);
       foreach (var message in fetched)
       {
         if (message.Flags == MessageFlags.Seen)
@@ -172,7 +171,6 @@ namespace BudgetBot.Services
 
         client.Inbox.AddFlags(message.Index, MessageFlags.Seen, true);
       }
-      //await client.Inbox.OpenAsync(FolderAccess.ReadOnly, cancel.Token);
     }
 
     async Task WaitForNewMessagesAsync()

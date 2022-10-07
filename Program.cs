@@ -22,7 +22,8 @@ namespace BudgetBot
     private readonly IConfiguration _config;
     private DiscordSocketClient _client;
     private static string _logLevel;
-    private InteractionService _commands;
+    private InteractionService _interactions;
+    private CommandService _commands;
     private ulong _testGuildId;
 
     static void Main(string[] args = null)
@@ -61,7 +62,10 @@ namespace BudgetBot
         var client = services.GetRequiredService<DiscordSocketClient>();
         _client = client;
 
-        var commands = services.GetRequiredService<InteractionService>();
+        var interactions = services.GetRequiredService<InteractionService>();
+        _interactions = interactions;
+
+        var commands = services.GetRequiredService<CommandService>();
         _commands = commands;
 
         // setup logging and the ready event
@@ -74,7 +78,8 @@ namespace BudgetBot
 
         // we get the CommandHandler class here and call the InitializeAsync method to start things up for the CommandHandler service
         await services.GetRequiredService<CommandHandler>().InitializeAsync();
-        await services.GetRequiredService<MailListener>().InitializeAsync();
+        await services.GetRequiredService<InteractionHandler>().InitializeAsync();
+        //await services.GetRequiredService<MailListener>().InitializeAsync();
 
         await Task.Delay(-1);
       }
@@ -92,12 +97,12 @@ namespace BudgetBot
       {
         // this is where you put the id of the test discord guild
         System.Console.WriteLine($"In debug mode, adding commands to {_testGuildId}...");
-        await _commands.RegisterCommandsToGuildAsync(_testGuildId);
+        await _interactions.RegisterCommandsToGuildAsync(_testGuildId);
       }
       else
       {
         // this method will add commands globally, but can take around an hour
-        await _commands.RegisterCommandsGloballyAsync(true);
+        await _interactions.RegisterCommandsGloballyAsync(true);
       }
       Console.WriteLine($"Connected as -> [{_client.CurrentUser}] :)");
     }
@@ -113,6 +118,8 @@ namespace BudgetBot
           .AddSingleton(_config)
           .AddSingleton<DiscordSocketClient>()
           .AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()))
+          .AddSingleton<InteractionHandler>()
+          .AddSingleton<CommandService>()
           .AddSingleton<CommandHandler>()
           .AddSingleton<LoggingService>()
           .AddSingleton<BotCommands>()
