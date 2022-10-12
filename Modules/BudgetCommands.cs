@@ -6,12 +6,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace BudgetBot.Modules
 {
-  [Group("budgets", "Group description")]
+  [Group("budget", "Group description")]
   public class BudgetCommands : InteractionModuleBase<SocketInteractionContext>
   {
     private DiscordSocketClient _client;
@@ -27,20 +29,49 @@ namespace BudgetBot.Modules
       _db = services.GetRequiredService<BudgetBotEntities>();
     }
 
+    #region message commands
+    [MessageCommand("rollover")]
+    public async Task MessageCommand(IMessage message)
+    {
+      await RespondAsync($"Author is {message.Author.Username}");
+    }
+    #endregion
+
     [SlashCommand("create", "creates a new budget")]
-    public async Task CreateCommand()
+    public async Task CreateCommand(string name, decimal limit, bool isIncome = false)
     {
       var sb = new StringBuilder();
 
-      // get user info from the Context
-      var user = Context.User;
+      name = name.ToLower();
+      limit = Math.Abs(limit);
 
-      // build out the reply
-      sb.AppendLine($"You are -> [{user.Username}]");
-      sb.AppendLine("I must now say, World!");
+      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now);
+      monthlyBudget.Budgets ??= new List<BudgetCategory>();
+
+      if (monthlyBudget.Budgets.Any(x => x.Name == name))
+      {
+        sb.AppendLine($"There is already a budget named {name} for {monthlyBudget.Date:Y}");
+        await RespondAsync(sb.ToString());
+        return;
+      }
+
+      var budget = new BudgetCategory
+      {
+        Balance = 0,
+        Name = name,
+        TargetAmount = isIncome ? limit * -1 : limit,
+        MonthlyBudget = monthlyBudget,
+      };
+
+      monthlyBudget.Budgets.Add(budget);
+
+      _db.Update(monthlyBudget);
+      _db.SaveChanges();
+
+      monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now);
 
       // send simple string reply
-      await RespondAsync(sb.ToString());
+      await RespondAsync("", new Embed[] { budget.ToEmbed() });
     }
   }
 }

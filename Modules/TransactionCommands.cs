@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace BudgetBot.Modules
 {
-  [Group("transactions", "Group description")]
+  [Group("transaction", "Group description")]
   public class TransactionCommands : InteractionModuleBase<SocketInteractionContext>
   {
     private DiscordSocketClient _client;
@@ -147,7 +147,11 @@ namespace BudgetBot.Modules
         embed.Title = "Transactions";
         embed.Description = sb.ToString();
 
-        // send embed reply
+        // for the time being, we must send messages that the user can reply to, not responses
+        // this issue is being internally tracked by discord and will be fixed
+        // https://github.com/discord/discord-api-docs/issues/5395
+
+        // send embed response
         await RespondAsync("", new Embed[] { embed.Build() });
       }
 

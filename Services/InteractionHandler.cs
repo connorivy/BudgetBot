@@ -138,6 +138,11 @@ namespace BudgetBot.Services
       return Task.CompletedTask;
     }
 
+    //private async Task SlashCommandExecuted(SocketSlashCommand command)
+    //{
+    //  await Task.Delay(1000);
+    //}
+
     private async Task HandleInteraction(SocketInteraction arg)
     {
       try
@@ -157,58 +162,5 @@ namespace BudgetBot.Services
         }
       }
     }
-
-    //// this class is where the magic starts, and takes actions upon receiving messages
-    //public async Task MessageReceivedAsync(SocketMessage rawMessage)
-    //{
-    //  // ensures we don't process system/other bot messages
-    //  if (!(rawMessage is SocketUserMessage message))
-    //  {
-    //    return;
-    //  }
-
-    //  if (message.Source != MessageSource.User)
-    //  {
-    //    return;
-    //  }
-
-    //  // sets the argument position away from the prefix we set
-    //  var argPos = 0;
-
-    //  // get prefix from the configuration file
-    //  char prefix = Char.Parse(_config["PREFIX"]);
-
-    //  // determine if the message has a valid prefix, and adjust argPos based on prefix
-    //  if (!(message.HasMentionPrefix(_client.CurrentUser, ref argPos) || message.HasCharPrefix(prefix, ref argPos)))
-    //  {
-    //    return;
-    //  }
-
-    //  var context = new SocketCommandContext(_client, message);
-
-    //  // execute command if one is found that matches
-    //  await _commands.ExecuteAsync(context, argPos, _services);
-    //}
-
-    //public async Task CommandExecutedAsync(Optional<CommandInfo> command, ICommandContext context, IResult result)
-    //{
-    //  // if a command isn't found, log that info to console and exit this method
-    //  if (!command.IsSpecified)
-    //  {
-    //    _logger.LogError($"Command failed to execute for [{context.User.Username}] <-> [{result.ErrorReason}]!");
-    //    return;
-    //  }
-
-
-    //  // log success to the console and exit this method
-    //  if (result.IsSuccess)
-    //  {
-    //    _logger.LogInformation($"Command [{command.Value.Name}] executed for [{context.User.Username}] on [{context.Guild.Name}]");
-    //    return;
-    //  }
-
-    //  // failure scenario, let's let the user know
-    //  await context.Channel.SendMessageAsync($"Sorry, {context.User.Username}... something went wrong -> [{result}]!");
-    //}
   }
 }
