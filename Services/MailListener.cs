@@ -149,7 +149,7 @@ namespace BudgetBot.Services
                   {
                     creditCardEnding = table.ChildNodes[0].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Trim();
                     var transactionAmountString = table.ChildNodes[1].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Replace("$","").Trim();
-                    transactionAmount = Convert.ToDecimal(transactionAmountString);
+                    transactionAmount = Convert.ToDecimal(transactionAmountString) * -1;
                     merchant = table.ChildNodes[2].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Trim();
                   }
                 }

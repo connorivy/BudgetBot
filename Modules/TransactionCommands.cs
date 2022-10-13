@@ -18,7 +18,7 @@ namespace BudgetBot.Modules
   {
     private DiscordSocketClient _client;
     private readonly IConfiguration _config;
-    public readonly BudgetBotEntities _db;
+    public static BudgetBotEntities _db;
 
 
     public TransactionCommands(IServiceProvider services)
@@ -30,6 +30,36 @@ namespace BudgetBot.Modules
       _db = services.GetRequiredService<BudgetBotEntities>();
     }
 
+    #region message commands
+    [MessageCommand("categorize")]
+    public async Task CategorizeCommand(IMessage message)
+    {
+      var smb = new SelectMenuBuilder()
+        .WithPlaceholder("Categories")
+        .WithCustomId("categorize");
+
+      HelperFunctions.SelectedTransaction = await HelperFunctions.GetTransaction(_db, message.Embeds.ToList());
+
+      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now);
+
+      if (monthlyBudget.Budgets?.Count == 0)
+      {
+        await RespondAsync("There are currently no budget categories. Create one with \"/budget create\"");
+        return;
+      }
+
+      foreach( var budget in monthlyBudget.Budgets)
+      {
+        smb.AddOption(budget.Name, budget.Name, $"Amount remaining in budget: ${budget.AmountRemaining}");
+      }
+
+      var builder = new ComponentBuilder()
+        .WithSelectMenu(smb);
+
+      await RespondAsync("Choose a category for this transaction", components: builder.Build(), ephemeral: true);
+    }
+    #endregion
+
     [Group("categorize", "Subcommand group description")]
     public class CategorizeCommands : InteractionModuleBase<SocketInteractionContext>
     {
@@ -37,40 +67,6 @@ namespace BudgetBot.Modules
       public CategorizeCommands(BudgetBotEntities db)
       {
         _db = db;
-      }
-
-      [SlashCommand("budget", "categorize a recent transaction")]
-      public async Task BudgetCommand(int limit = 25)
-      {
-        var sb = new StringBuilder();
-        var embed = new EmbedBuilder();
-
-        var transactions = new List<Transaction>();
-
-        transactions = await _db.Transactions
-          .AsQueryable()
-          .Take(limit)
-          .Where(b => b.Bucket == null)
-          .ToListAsync();
-
-        if (transactions.Count > 0)
-        {
-          foreach (var transaction in transactions)
-          {
-            sb.AppendLine($"${transaction.Amount} {transaction.Merchant}");
-          }
-        }
-        else
-        {
-          sb.AppendLine("No transactions found!");
-        }
-
-        // set embed
-        embed.Title = "Transactions";
-        embed.Description = sb.ToString();
-
-        // send embed reply
-        await RespondAsync("", new Embed[] { embed.Build() });
       }
 
       [SlashCommand("bucket", "flag a recent transaction as a transfer to a bucket")]

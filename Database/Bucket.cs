@@ -113,12 +113,12 @@ namespace BudgetBot.Database
     }
     public override void GetEmbedText(ref EmbedBuilder embed, ref StringBuilder sb)
     {
-      embed.Title = $"Budget : {Name} {MonthlyBudgetDate:Y}";
+      embed.Title = $"{Name} : {MonthlyBudget.Date:Y}";
       sb.AppendLine($"Balance:\t\t${AbsBalance}");
-      sb.AppendLine($"Budgeted Amount:\t{AbsTargetAmount}");
-      sb.AppendLine($"Amount Remaining:\t\t{AmountRemaining}");
+      sb.AppendLine($"Budgeted Amount:\t${AbsTargetAmount}");
+      sb.AppendLine($"Amount Remaining:\t\t${AmountRemaining}");
     }
-    public override decimal Progress => Balance / TargetAmount;
+    public override decimal Progress => (TargetAmount - Balance) / TargetAmount;
     #endregion
   }
 }

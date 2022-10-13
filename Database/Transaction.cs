@@ -17,11 +17,12 @@ namespace BudgetBot.Database
     public string Merchant { get; set; }
     public DateTimeOffset Date { get; set; }
     public string Note { get; set; }
+    public decimal AbsAmount => Math.Abs(Amount);
 
     // navigation properties
     public string BucketName { get; set; }
     public Bucket Bucket { get; set; }
-    public long BudgetCategoryId { get; set; }
+    public long? BudgetCategoryId { get; set; }
     public BudgetCategory BudgetCategory { get; set; }
 
     public Embed ToEmbed()
@@ -31,7 +32,7 @@ namespace BudgetBot.Database
 
       embed.Title = $"Transaction : {Id}";
       sb.AppendLine($"Payment Method:\t{PaymentMethod}");
-      sb.AppendLine($"Amount:\t\t${Amount}");
+      sb.AppendLine($"Amount:\t\t${AbsAmount}");
       sb.AppendLine($"Merchant:\t\t{Merchant}");
       sb.AppendLine($"Date:\t\t{Date:f}");
       embed.Description = sb.ToString();
@@ -51,7 +52,7 @@ namespace BudgetBot.Database
 
       // if maxValue is less than 0, then it is a budget not a bucket and all colors should be flipped
       decimal progress = 0;
-      progress = (redDollarAmount - Amount) / 200;
+      progress = (redDollarAmount - AbsAmount) / 200;
 
       switch (progress)
       {

@@ -3,11 +3,13 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Discord;
-//using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Discord.Interactions;
+using System.Linq;
+using BudgetBot.Modules;
+using BudgetBot.Database;
 
 namespace BudgetBot.Services
 {
@@ -19,6 +21,7 @@ namespace BudgetBot.Services
     private readonly DiscordSocketClient _client;
     private readonly IServiceProvider _services;
     private readonly Microsoft.Extensions.Logging.ILogger _logger;
+    private readonly BudgetBotEntities _db;
 
     public InteractionHandler(IServiceProvider services)
     {
@@ -28,6 +31,7 @@ namespace BudgetBot.Services
       _commands = services.GetRequiredService<InteractionService>();
       _client = services.GetRequiredService<DiscordSocketClient>();
       _logger = services.GetRequiredService<ILogger<InteractionHandler>>();
+      _db = services.GetRequiredService<BudgetBotEntities>();
       _services = services;
 
       //// take action when we execute a command
@@ -44,6 +48,7 @@ namespace BudgetBot.Services
 
       // process the InteractionCreated payloads to execute Interactions commands
       _client.InteractionCreated += HandleInteraction;
+      _client.SelectMenuExecuted += SelectMenuHandler;
 
       // process the command execution results 
       _commands.SlashCommandExecuted += SlashCommandExecuted;
@@ -162,5 +167,35 @@ namespace BudgetBot.Services
         }
       }
     }
+
+    public async Task SelectMenuHandler(SocketMessageComponent arg)
+    {
+      switch(arg.Data.CustomId)
+      {
+        case "categorize":
+          await CategorizeSelectedOption(arg, arg.Data.Values.FirstOrDefault());
+          return;
+      }
+      var text = string.Join(", ", arg.Data.Values);
+      await arg.RespondAsync($"You have selected {text}");
+    }
+
+    #region menu select commands
+    public async Task CategorizeSelectedOption(SocketMessageComponent arg, string value)
+    {
+      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now);
+      var selectedBudget = monthlyBudget.Budgets.Where(b => b.Name == value).FirstOrDefault();
+      selectedBudget.AddTransaction(HelperFunctions.SelectedTransaction);
+      HelperFunctions.SelectedTransaction = null;
+
+      await arg.UpdateAsync(x =>
+      {
+        x.Content = "";
+        x.Embed = selectedBudget.ToEmbed();
+        x.Components = null;
+      });
+
+    }
+    #endregion
   }
 }
