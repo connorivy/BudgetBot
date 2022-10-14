@@ -30,6 +30,23 @@ namespace BudgetBot.Modules
       _db = services.GetRequiredService<BudgetBotEntities>();
     }
 
+    [SlashCommand("hello", "this is a test")]
+    public async Task HelloCommand()
+    {
+      // initialize empty string builder for reply
+      var sb = new StringBuilder();
+
+      // get user info from the Context
+      var user = Context.User;
+
+      // build out the reply
+      sb.AppendLine($"You are -> [{user.Username}]");
+      sb.AppendLine("I must now say, World!");
+
+      // send simple string reply
+      await ReplyAsync(sb.ToString());
+    }
+
     #region message commands
     [MessageCommand("categorize")]
     public async Task CategorizeCommand(IMessage message)
