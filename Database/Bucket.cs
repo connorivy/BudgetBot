@@ -42,14 +42,14 @@ namespace BudgetBot.Database
           green = 255;
           break;
         // red
-        case decimal n when (n <= 0):
+        case decimal n when (n < 0):
           red = 255;
           green = 0;
           break;
         // red - yellow
         case decimal n when (n <= (decimal)0.5):
           red = 255;
-          green = (int)Math.Round(255 * (2 * n));
+          green = (int)Math.Round((255- ColorFloor) * (2 * n) + ColorFloor); // have a
           break;
         // yellow - green
         case decimal n when (n < 1):
@@ -67,6 +67,7 @@ namespace BudgetBot.Database
     public abstract void AddTransaction(Transaction transaction);
     public abstract void GetEmbedText(ref EmbedBuilder embed, ref StringBuilder sb);
     public abstract decimal Progress { get; }
+    public abstract int ColorFloor { get; }
     #endregion
   }
 
@@ -93,6 +94,7 @@ namespace BudgetBot.Database
       sb.AppendLine($"Time Remaining:\t\t{TimeRemaining}");
     }
     public override decimal Progress => Balance / TargetAmount;
+    public override int ColorFloor => 0;
     #endregion
   }
 
@@ -103,6 +105,31 @@ namespace BudgetBot.Database
     public string Name { get; set; }
     public DateTimeOffset MonthlyBudgetDate { get; set; }
     public MonthlyBudget MonthlyBudget { get; set; }
+    public MessageComponent GetComponents()
+    {
+      if (AmountRemaining > 0)
+        return null;
+
+      var rolloverButton = new ButtonBuilder()
+      {
+        Label = "Rollover",
+        CustomId = "rollover",
+        Style = ButtonStyle.Primary
+      };
+
+      var transferButton = new ButtonBuilder()
+      {
+        Label = "Transfer",
+        CustomId = "transfer",
+        Style = ButtonStyle.Primary
+      };
+
+      var builder = new ComponentBuilder()
+        .WithButton(rolloverButton)
+        .WithButton(transferButton);
+
+      return builder.Build();
+    }
 
     # region overrides
     public override decimal AmountRemaining => Balance - TargetAmount;
@@ -119,6 +146,7 @@ namespace BudgetBot.Database
       sb.AppendLine($"Amount Remaining:\t\t${AmountRemaining}");
     }
     public override decimal Progress => (TargetAmount - Balance) / TargetAmount;
+    public override int ColorFloor => 80; //add an offset between 100% budget and 101% budget colors
     #endregion
   }
 }

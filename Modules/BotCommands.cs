@@ -14,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Windows.Input;
 using Microsoft.EntityFrameworkCore;
+using System.Threading.Channels;
 
 namespace BudgetBot.Modules
 {
@@ -53,43 +54,8 @@ namespace BudgetBot.Modules
       await ReplyAsync(sb.ToString());
     }
 
-    [Command("categorize")]
-    public async Task CategorizeCommand(string cat = null)
-    {
-      var sb = new StringBuilder();
-
-      cat = cat.ToLower();
-
-      if (string.IsNullOrEmpty(cat))
-      {
-        sb.AppendLine($"Category cannot be empty");
-        sb.AppendLine("Categorize command should look like this  -> categorize \"groceries\"");
-        await ReplyAsync(sb.ToString());
-      }
-
-      var category = await HelperFunctions.GetCategory(_db, cat, DateTimeOffset.Now);
-
-      if (category == null)
-      {
-        sb.AppendLine($"Could not find category {cat}.");
-        sb.AppendLine("Use /budget list to see current budgets or /budget help for other options.");
-        await ReplyAsync(sb.ToString());
-      }
-
-      // get user info from the Context
-      //var user = Context.User;
-
-      var transaction = await HelperFunctions.GetTransaction(_db, Context.Message.ReferencedMessage.Embeds.ToList());
-      category.AddTransaction(transaction);
-      //await _db.SaveChangesAsync(); //do I need this??
-
-      await ReplyAsync(null, false, category.ToEmbed());
-    }
-
     public async Task NotifyOfTransaction(string creditCardEnding, decimal transactionAmount, string merchant, DateTimeOffset? date)
     {
-      //try
-      //{
       var transaction = new Transaction
       {
         PaymentMethod = creditCardEnding,
@@ -103,29 +69,38 @@ namespace BudgetBot.Modules
 
       var guildId = Convert.ToUInt64(_config["TEST_GUILD_ID"]);
       var guild = _client.GetGuild(guildId);
-      var channelId = await GetChannel(guild);
+      var channelId = await GetChannel(guild, "budgeting");
 
       var channel = guild.GetTextChannel(channelId);
 
       await channel.SendMessageAsync("", false, transaction.ToEmbed());
-      //}
-      //catch (Exception ex)
-      //{ }
-
     }
 
-    public async Task<ulong> GetChannel(SocketGuild guild)
+    public async Task<ulong> GetChannel(SocketGuild guild, string name)
     {
-      var channel = guild.Channels.SingleOrDefault(x => x.Name == "budgeting");
+      var channel = guild.Channels.SingleOrDefault(x => x.Name == name);
 
-      if (channel == null) // there is no channel with the name of 'budgeting'
+      if (channel == null) // there is no channel with the provided name
       {
+        var channelCategoryId = await GetChannelCategory(guild, "BudgetBot");
         // create the channel
-        var newChannel = await Context.Guild.CreateTextChannelAsync("budgeting");
+        var newChannel = await Context.Guild.CreateTextChannelAsync(name, b => b.CategoryId = channelCategoryId);
         return newChannel.Id;
       }
       else
         return channel.Id;
+    }
+
+    public async Task<ulong> GetChannelCategory(SocketGuild guild, string name)
+    {
+      var cat = guild.CategoryChannels.SingleOrDefault(x => x.Name == name);
+      if (cat == null)
+      {
+        var newChannelCat = await guild.CreateCategoryChannelAsync(name);
+        return newChannelCat.Id;
+      }
+      else
+        return cat.Id;
     }
   }
 }

@@ -33,12 +33,6 @@ namespace BudgetBot.Services
       _logger = services.GetRequiredService<ILogger<InteractionHandler>>();
       _db = services.GetRequiredService<BudgetBotEntities>();
       _services = services;
-
-      //// take action when we execute a command
-      //_commands.CommandExecuted += CommandExecutedAsync;
-
-      //// take action when we receive a message (so we can process it, and see if it is a valid command)
-      //_client.MessageReceived += MessageReceivedAsync;
     }
 
     public async Task InitializeAsync()
@@ -49,6 +43,7 @@ namespace BudgetBot.Services
       // process the InteractionCreated payloads to execute Interactions commands
       _client.InteractionCreated += HandleInteraction;
       _client.SelectMenuExecuted += SelectMenuHandler;
+      _client.ButtonExecuted += ButtonHandler;
 
       // process the command execution results 
       _commands.SlashCommandExecuted += SlashCommandExecuted;
@@ -168,6 +163,8 @@ namespace BudgetBot.Services
       }
     }
 
+    #region menu select commands
+
     public async Task SelectMenuHandler(SocketMessageComponent arg)
     {
       switch(arg.Data.CustomId)
@@ -180,22 +177,81 @@ namespace BudgetBot.Services
       await arg.RespondAsync($"You have selected {text}");
     }
 
-    #region menu select commands
     public async Task CategorizeSelectedOption(SocketMessageComponent arg, string value)
     {
       var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now);
       var selectedBudget = monthlyBudget.Budgets.Where(b => b.Name == value).FirstOrDefault();
       selectedBudget.AddTransaction(HelperFunctions.SelectedTransaction);
       HelperFunctions.SelectedTransaction = null;
+      await _db.SaveChangesAsync();
 
       await arg.UpdateAsync(x =>
       {
         x.Content = "";
         x.Embed = selectedBudget.ToEmbed();
-        x.Components = null;
+        x.Components = selectedBudget.GetComponents();
       });
 
     }
+    #endregion
+
+    #region button commands
+    public async Task ButtonHandler(SocketMessageComponent arg)
+    {
+      switch (arg.Data.CustomId)
+      {
+        case "rollover":
+          await RolloverCommand(arg);
+          return;
+      }
+      var text = string.Join(", ", arg.Data);
+      await arg.RespondAsync($"You have selected {text}");
+    }
+
+    public async Task RolloverCommand(SocketMessageComponent arg)
+    {
+      var budgetCategory = await HelperFunctions.GetBudgetCategory(_db, arg.Message.Embeds.ToList());
+      var nextMonth = budgetCategory.MonthlyBudget.Date.AddMonths(1);
+
+      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, nextMonth);
+      var nextMonthBudgetCat = monthlyBudget.Budgets.Where(b => b.Name == budgetCategory.Name).FirstOrDefault();
+
+      if (nextMonthBudgetCat == null)
+      {
+        nextMonthBudgetCat ??= new BudgetCategory()
+        {
+          Name = budgetCategory.Name,
+          Balance = 0,
+          TargetAmount = budgetCategory.TargetAmount
+        };
+        monthlyBudget.Budgets.Add(nextMonthBudgetCat);
+      }
+
+      var transfer = new Transfer()
+      {
+        Amount = budgetCategory.AmountRemaining,
+        Date = DateTimeOffset.Now,
+        OriginalBudgetCategory = budgetCategory,
+        TargetBudgetCategory = nextMonthBudgetCat
+      };
+
+      transfer.Apply();
+      //_db.Update(budgetCategory);
+
+      await _db.Transfers.AddAsync(transfer);
+      await _db.SaveChangesAsync();
+
+      var x = budgetCategory;
+      var y = transfer.OriginalBudgetCategory;
+
+      await arg.UpdateAsync(x =>
+      {
+        x.Content = "";
+        x.Embeds = new Embed[] { budgetCategory.ToEmbed(), nextMonthBudgetCat.ToEmbed() };
+        x.Components = nextMonthBudgetCat.GetComponents();
+      });
+    }
+
     #endregion
   }
 }

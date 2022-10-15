@@ -90,8 +90,37 @@ namespace BudgetBot.Database
     public decimal Amount { get; set; }
     public Bucket OriginalBucket { get; set; }
     public Bucket TargetBucket { get; set; }
-    public Bucket OriginalBudgetCategory { get; set; }
-    public Bucket TargetBudgetCategory { get; set; }
+    public long? OriginalBudgetCategoryId { get; set; }
+    public BudgetCategory OriginalBudgetCategory { get; set; }
+    public long? TargetBudgetCategoryId { get; set; }
+    public BudgetCategory TargetBudgetCategory { get; set; }
+
+    public void Apply()
+    {
+      if (OriginalBucket != null && TargetBucket != null)
+      {
+        OriginalBucket.Balance -= Amount;
+        TargetBucket.Balance += Amount;
+      }
+      else if (OriginalBudgetCategory != null && TargetBudgetCategory != null)
+      {
+        OriginalBudgetCategory.Balance -= Amount;
+        TargetBudgetCategory.Balance += Amount;
+      }
+    }
+    public void Rollback()
+    {
+      if (OriginalBucket != null && TargetBucket != null)
+      {
+        OriginalBucket.Balance += Amount;
+        TargetBucket.Balance -= Amount;
+      }
+      else if (OriginalBudgetCategory != null && TargetBudgetCategory != null)
+      {
+        TargetBudgetCategory.Balance += Amount;
+        TargetBudgetCategory.Balance -= Amount;
+      }
+    }
   }
 
   public class MonthlyBudget

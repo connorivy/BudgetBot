@@ -30,11 +30,7 @@ namespace BudgetBot.Modules
     }
 
     #region message commands
-    [MessageCommand("rollover")]
-    public async Task MessageCommand(IMessage message)
-    {
-      await RespondAsync($"Author is {message.Author.Username}");
-    }
+
     #endregion
 
     [SlashCommand("create", "creates a new budget")]
@@ -46,6 +42,7 @@ namespace BudgetBot.Modules
       limit = Math.Abs(limit);
 
       var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now);
+      _db.Update(monthlyBudget);
       monthlyBudget.Budgets ??= new List<BudgetCategory>();
 
       if (monthlyBudget.Budgets.Any(x => x.Name == name))
@@ -65,7 +62,6 @@ namespace BudgetBot.Modules
 
       monthlyBudget.Budgets.Add(budget);
 
-      //_db.Update(monthlyBudget);
       await _db.SaveChangesAsync();
 
       // send simple string reply

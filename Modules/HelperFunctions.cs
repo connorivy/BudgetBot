@@ -27,12 +27,22 @@ namespace BudgetBot.Modules
     private static MonthlyBudget _currentBudget;
     public async static Task<MonthlyBudget> GetMonthlyBudget(BudgetBotEntities _db, DateTimeOffset date)
     {
-      if (date.Month == _currentBudget?.Date.Month && date.Year == _currentBudget?.Date.Year)
-        return _currentBudget;
+      //if (date.Month == _currentBudget?.Date.Month && date.Year == _currentBudget?.Date.Year)
+      //  return _currentBudget;
 
+      var budget = await GetExistingMonthlyBudget(_db, date);
+        
+      if (budget == null)
+        budget = await CreateMonthlyBudget(_db, date);
+      //_currentBudget = budget;
+
+      return budget;
+    }
+
+    public async static Task<MonthlyBudget> GetExistingMonthlyBudget(BudgetBotEntities _db, DateTimeOffset date)
+    {
       var budget = await _db.MonthlyBudgets
           .AsAsyncEnumerable()
-          .Take(1)
           .Where(b => b.Date.Year == date.Year && b.Date.Month == date.Month)
           .FirstOrDefaultAsync();
 
@@ -43,11 +53,6 @@ namespace BudgetBot.Modules
           .Where(b => b.MonthlyBudget == budget)
           .ToListAsync();
       }
-      else
-      {
-        budget = await CreateMonthlyBudget(_db, date);
-      }
-      _currentBudget = budget;
 
       return budget;
     }
@@ -57,7 +62,7 @@ namespace BudgetBot.Modules
       MonthlyBudget monthlyBudget = null;
       var defaultTemplate = await _db.MonthlyBudgetTemplates
           .AsAsyncEnumerable()
-          .Take(1)
+          .Take(25)
           .Where(b => b.IsDefault == true)
           .FirstOrDefaultAsync();
 
@@ -70,9 +75,11 @@ namespace BudgetBot.Modules
       }
       else
       {
-        //var lastMonth = date.AddMonths(-1);
-        //if (lastMonth.Month == _currentBudget.Date.Month && lastMonth.Year == _currentBudget.Date.Year)
-        //  budgetsList = _currentBudget.Budgets;
+        var lastMonth = date.AddMonths(-1);
+        var lastMonthlyBudget = await GetExistingMonthlyBudget(_db, lastMonth);
+        if (lastMonthlyBudget != null && lastMonthlyBudget.Budgets != null)
+          foreach (var budget in lastMonthlyBudget.Budgets)
+            budgetsList.Add(budget);
       }
 
       monthlyBudget = new MonthlyBudget
@@ -87,6 +94,11 @@ namespace BudgetBot.Modules
       return monthlyBudget;
     }
 
+    public static DateTimeOffset GetEndOfMonth(DateTimeOffset date)
+    {
+      return new DateTimeOffset(date.Year, date.Month, DateTime.DaysInMonth(date.Year, date.Month), 0, 0, 0, date.Offset);
+    }
+
     public static async Task<Transaction> GetTransaction(BudgetBotEntities _db, List<IEmbed> embeds)
     {
       if (embeds.Count != 1)
@@ -95,7 +107,7 @@ namespace BudgetBot.Modules
       var titleParts = embeds[0].Title.Split(':');
       if (titleParts.Length == 2)
       {
-        var id = long.Parse(titleParts[1].ToString().Trim());
+        var id = long.Parse(titleParts[1].Trim());
 
         var transaction = await _db.Transactions
           .AsAsyncEnumerable()
@@ -107,9 +119,24 @@ namespace BudgetBot.Modules
       return null;
     }
 
-    public static DateTimeOffset GetEndOfMonth(DateTimeOffset date)
+    public static async Task<BudgetCategory> GetBudgetCategory(BudgetBotEntities _db, List<Embed> embeds)
     {
-      return new DateTimeOffset(date.Year, date.Month, DateTime.DaysInMonth(date.Year, date.Month), 0, 0, 0, date.Offset);
+      if (embeds.Count != 1)
+        return null;
+
+      var titleParts = embeds[0].Title.Split(':');
+      if (titleParts.Length == 2)
+      {
+        var name = titleParts[0].Trim();
+        var date = DateTimeOffset.Parse(titleParts[1].Trim());
+
+        var monthlyBudget = await GetMonthlyBudget(_db, date);
+        var budgetCategory = monthlyBudget.Budgets.Where(b => b.Name == name).FirstOrDefault();
+
+        return budgetCategory;
+      }
+
+      return null;
     }
   }
 }
