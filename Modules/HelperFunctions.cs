@@ -16,25 +16,57 @@ namespace BudgetBot.Modules
   {
     public static Transaction SelectedTransaction { get; set; }
 
-    public async static Task<BudgetCategory> GetCategory(BudgetBotEntities _db, string cat, DateTimeOffset date)
-    {
-      var budget = await GetMonthlyBudget(_db, date);
-      var category = budget.Budgets.Where(x => x.Name == cat).FirstOrDefault();
+    public static SocketGuild Guild { get; set; }
 
-      return category;
+    public static async Task<ulong> GetChannelId(SocketGuild guild, string name)
+    {
+      name = name.ToLower().Replace(" ", "-");
+      var channel = guild.Channels.SingleOrDefault(x => x.Name == name);
+
+      if (channel == null) // there is no channel with the provided name
+      {
+        var channelCategoryId = await GetChannelCategory(guild, "BudgetBot");
+        // create the channel
+        var newChannel = await guild.CreateTextChannelAsync(name, b => b.CategoryId = channelCategoryId);
+        return newChannel.Id;
+      }
+      else
+        return channel.Id;
     }
 
-    private static MonthlyBudget _currentBudget;
-    public async static Task<MonthlyBudget> GetMonthlyBudget(BudgetBotEntities _db, DateTimeOffset date)
+    public static async Task<ulong> GetChannelCategory(SocketGuild guild, string name)
     {
-      //if (date.Month == _currentBudget?.Date.Month && date.Year == _currentBudget?.Date.Year)
-      //  return _currentBudget;
+      var cat = guild.CategoryChannels.SingleOrDefault(x => x.Name == name);
+      if (cat == null)
+      {
+        var newChannelCat = await guild.CreateCategoryChannelAsync(name);
+        return newChannelCat.Id;
+      }
+      else
+        return cat.Id;
+    }
+
+    //public async static Task<BudgetCategory> GetCategory(BudgetBotEntities _db, string cat, DateTimeOffset date)
+    //{
+    //  var budget = await GetMonthlyBudget(_db, date);
+    //  var category = budget.Budgets.Where(x => x.Name == cat).FirstOrDefault();
+
+    //  return category;
+    //}
+
+    private static MonthlyBudget _currentBudget;
+    public async static Task<MonthlyBudget> GetMonthlyBudget(BudgetBotEntities _db, DateTimeOffset date, SocketGuild guild = null)
+    {
+      // cache the current budget
+      if (date.Month == _currentBudget?.Date.Month && date.Year == _currentBudget?.Date.Year)
+        return _currentBudget;
 
       var budget = await GetExistingMonthlyBudget(_db, date);
         
-      if (budget == null)
-        budget = await CreateMonthlyBudget(_db, date);
-      //_currentBudget = budget;
+      if (budget == null && guild != null)
+        budget = await CreateMonthlyBudget(_db, date, guild);
+
+      _currentBudget = budget;
 
       return budget;
     }
@@ -57,7 +89,7 @@ namespace BudgetBot.Modules
       return budget;
     }
 
-    public async static Task<MonthlyBudget> CreateMonthlyBudget(BudgetBotEntities _db, DateTimeOffset date)
+    public async static Task<MonthlyBudget> CreateMonthlyBudget(BudgetBotEntities _db, DateTimeOffset date, SocketGuild guild)
     {
       MonthlyBudget monthlyBudget = null;
       var defaultTemplate = await _db.MonthlyBudgetTemplates
@@ -66,12 +98,12 @@ namespace BudgetBot.Modules
           .Where(b => b.IsDefault == true)
           .FirstOrDefaultAsync();
 
-      var budgetName = $"Budget for {date:MMMM} {date:yyyy}";
+      var budgetName = $"Budget {date:MMM} {date:yyyy}";
       var budgetsList = new List<BudgetCategory>();
       if (defaultTemplate != null)
       {
         budgetsList = defaultTemplate.Budgets;
-        budgetName = defaultTemplate.Name.Replace("MMMM", date.ToString("MMMM")).Replace("yyyy", date.ToString("yyyy"));
+        budgetName = defaultTemplate.Name.Replace("MMM", date.ToString("MMM")).Replace("yyyy", date.ToString("yyyy"));
       }
       else
       {
@@ -88,6 +120,8 @@ namespace BudgetBot.Modules
         Name = budgetName,
         Budgets = budgetsList
       };
+
+      await monthlyBudget.UpdateChannel(guild);
       await _db.AddAsync(monthlyBudget);
       await _db.SaveChangesAsync();
 

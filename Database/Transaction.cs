@@ -1,10 +1,16 @@
-﻿using Discord;
+﻿using BudgetBot.Modules;
+using Discord;
+using Discord.Rest;
+using Discord.WebSocket;
 using MailKit.Search;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
 using System.Text;
+using System.Threading.Channels;
+using System.Threading.Tasks;
 
 namespace BudgetBot.Database
 {
@@ -127,8 +133,42 @@ namespace BudgetBot.Database
   {
     [Key]
     public DateTimeOffset Date { get; set; }
-    public string Name { get; set; }
+    private string _name;
+    public string Name 
+    { 
+      get => _name;
+      set => _name = value.ToLower().Replace(' ', '-'); 
+    }
     public List<BudgetCategory> Budgets { get; set; }
+
+    public async Task UpdateChannel(SocketGuild guild)
+    {
+      var channelId = await HelperFunctions.GetChannelId(guild, Name);
+      var channel = guild.GetTextChannel(channelId);
+
+      Budgets.Sort((b1, b2) => b1.Name.CompareTo(b2.Name));
+
+      var embeds = new List<Embed>();
+
+      foreach (var budget in Budgets)
+        embeds.Add(budget.ToEmbed());
+
+      var messages = (await channel.GetMessagesAsync(5).FlattenAsync()).ToList();
+
+      if (messages.Count == 0)
+        await channel.SendMessageAsync("", false, embeds: embeds.ToArray());
+      else if (messages.Count != 1)
+        return;
+
+      if (messages.First() is RestUserMessage botMessage)
+      {
+        await botMessage.ModifyAsync(msg =>
+        {
+          msg.Content = "";
+          msg.Embeds = embeds.ToArray();
+        });
+      }
+    }
   }
 
   public class MonthlyBudgetTemplate

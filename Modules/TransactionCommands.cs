@@ -30,38 +30,61 @@ namespace BudgetBot.Modules
       _db = services.GetRequiredService<BudgetBotEntities>();
     }
 
-    [SlashCommand("hello", "this is a test")]
-    public async Task HelloCommand()
+    [SlashCommand("ping", "this is a test")]
+    public async Task PingCommand()
     {
-      // initialize empty string builder for reply
-      var sb = new StringBuilder();
+      await DeferAsync(ephemeral: true);
+      // send simple string reply
+      await ModifyOriginalResponseAsync(msg => msg.Content = "pong");
+    }
 
-      // get user info from the Context
-      var user = Context.User;
+    [SlashCommand("delayedping", "this is a test")]
+    public async Task DelayedPingCommand()
+    {
+      await DeferAsync(ephemeral: true);
+      await Task.Delay(5000);
+      // send simple string reply
+      await ModifyOriginalResponseAsync(msg => msg.Content = "pong");
+    }
 
-      // build out the reply
-      sb.AppendLine($"You are -> [{user.Username}]");
-      sb.AppendLine("I must now say, World!");
+    [SlashCommand("embed", "this is a test")]
+    public async Task EmbedCommand()
+    {
+      // acknowlege discord interaction
+      await DeferAsync(ephemeral: true);
+
+      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now);
+      var budget = monthlyBudget.Budgets.FirstOrDefault();
+
+      Embed embed = null;
+      if (budget != null)
+        embed = budget.ToEmbed();
 
       // send simple string reply
-      await ReplyAsync(sb.ToString());
+      await ModifyOriginalResponseAsync(msg => {
+        msg.Embed = embed;
+        msg.Content = "pong";
+      });
     }
 
     #region message commands
     [MessageCommand("categorize")]
     public async Task CategorizeCommand(IMessage message)
     {
+      // acknowlege discord interaction
+      await DeferAsync(ephemeral: true);
+
       var smb = new SelectMenuBuilder()
         .WithPlaceholder("Categories")
         .WithCustomId("categorize");
 
       HelperFunctions.SelectedTransaction = await HelperFunctions.GetTransaction(_db, message.Embeds.ToList());
 
-      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now);
+      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now, Context.Guild);
 
       if (monthlyBudget.Budgets?.Count == 0)
       {
-        await RespondAsync("There are currently no budget categories. Create one with \"/budget create\"");
+        await ModifyOriginalResponseAsync(msg => msg.Content = "There are currently no budget categories. Create one with \"/budget create\"");
         return;
       }
 
@@ -73,7 +96,11 @@ namespace BudgetBot.Modules
       var builder = new ComponentBuilder()
         .WithSelectMenu(smb);
 
-      await RespondAsync("Choose a category for this transaction", components: builder.Build(), ephemeral: true);
+      await ModifyOriginalResponseAsync(msg =>
+      {
+        msg.Content = "Choose a category for this transaction";
+        msg.Components = builder.Build();
+      });
     }
     #endregion
 
@@ -133,6 +160,9 @@ namespace BudgetBot.Modules
       [SlashCommand("uncategorized", "lists uncategorized transactions")]
       public async Task UncategorizedCommand(int limit = 25)
       {
+        // acknowlege discord interaction
+        await DeferAsync(ephemeral: true);
+
         var sb = new StringBuilder();
         var embed = new EmbedBuilder();
 
@@ -141,7 +171,7 @@ namespace BudgetBot.Modules
         transactions = await _db.Transactions
           .AsQueryable()
           .Take(limit)
-          .Where(b => b.Bucket == null)
+          .Where(b => b.BucketName == null && b.BudgetCategoryId == null)
           .ToListAsync();
 
         if (transactions.Count > 0)
@@ -165,12 +195,19 @@ namespace BudgetBot.Modules
         // https://github.com/discord/discord-api-docs/issues/5395
 
         // send embed response
-        await RespondAsync("", new Embed[] { embed.Build() });
+        await ModifyOriginalResponseAsync(msg =>
+        {
+          msg.Content = "";
+          msg.Embed = embed.Build();
+        });
       }
 
       [SlashCommand("categorized", "lists recent categorized transactions")]
       public async Task CategorizedCommand(int limit = 25)
       {
+        // acknowlege discord interaction
+        await DeferAsync(ephemeral: true);
+
         var sb = new StringBuilder();
         var embed = new EmbedBuilder();
 
@@ -179,7 +216,7 @@ namespace BudgetBot.Modules
         transactions = await _db.Transactions
           .AsQueryable()
           .Take(limit)
-          .Where(b => b.Bucket != null)
+          .Where(b => b.BucketName != null && b.BudgetCategoryId != null)
           .ToListAsync();
 
         if (transactions.Count > 0)
@@ -199,12 +236,19 @@ namespace BudgetBot.Modules
         embed.Description = sb.ToString();
 
         // send embed reply
-        await RespondAsync("", new Embed[] { embed.Build() });
+        await ModifyOriginalResponseAsync(msg =>
+        {
+          msg.Content = "";
+          msg.Embed = embed.Build();
+        });
       }
 
       [SlashCommand("all", "lists recent transactions")]
       public async Task all(int limit = 25)
       {
+        // acknowlege discord interaction
+        await DeferAsync(ephemeral: true);
+
         var sb = new StringBuilder();
         var embed = new EmbedBuilder();
 
@@ -233,7 +277,11 @@ namespace BudgetBot.Modules
         embed.Description = sb.ToString();
 
         // send embed reply
-        await RespondAsync("", new Embed[] { embed.Build() });
+        await ModifyOriginalResponseAsync(msg =>
+        {
+          msg.Content = "";
+          msg.Embed = embed.Build();
+        });
       }
     }
   }

@@ -69,38 +69,11 @@ namespace BudgetBot.Modules
 
       var guildId = Convert.ToUInt64(_config["TEST_GUILD_ID"]);
       var guild = _client.GetGuild(guildId);
-      var channelId = await GetChannel(guild, "budgeting");
+      var channelId = await HelperFunctions.GetChannelId(guild, "budgeting");
 
       var channel = guild.GetTextChannel(channelId);
 
       await channel.SendMessageAsync("", false, transaction.ToEmbed());
-    }
-
-    public async Task<ulong> GetChannel(SocketGuild guild, string name)
-    {
-      var channel = guild.Channels.SingleOrDefault(x => x.Name == name);
-
-      if (channel == null) // there is no channel with the provided name
-      {
-        var channelCategoryId = await GetChannelCategory(guild, "BudgetBot");
-        // create the channel
-        var newChannel = await Context.Guild.CreateTextChannelAsync(name, b => b.CategoryId = channelCategoryId);
-        return newChannel.Id;
-      }
-      else
-        return channel.Id;
-    }
-
-    public async Task<ulong> GetChannelCategory(SocketGuild guild, string name)
-    {
-      var cat = guild.CategoryChannels.SingleOrDefault(x => x.Name == name);
-      if (cat == null)
-      {
-        var newChannelCat = await guild.CreateCategoryChannelAsync(name);
-        return newChannelCat.Id;
-      }
-      else
-        return cat.Id;
     }
   }
 }

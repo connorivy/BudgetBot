@@ -36,19 +36,24 @@ namespace BudgetBot.Modules
     [SlashCommand("create", "creates a new budget")]
     public async Task CreateCommand(string name, decimal limit, bool isIncome = false)
     {
+      // acknowlege discord interaction
+      await DeferAsync(ephemeral: true);
+
       var sb = new StringBuilder();
 
       name = name.ToLower();
       limit = Math.Abs(limit);
 
-      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now);
-      _db.Update(monthlyBudget);
+      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now, Context.Guild);
       monthlyBudget.Budgets ??= new List<BudgetCategory>();
 
       if (monthlyBudget.Budgets.Any(x => x.Name == name))
       {
         sb.AppendLine($"There is already a budget named {name} for {monthlyBudget.Date:Y}");
-        await RespondAsync(sb.ToString());
+        await ModifyOriginalResponseAsync(msg =>
+        {
+          msg.Content = sb.ToString();
+        });
         return;
       }
 
@@ -61,11 +66,17 @@ namespace BudgetBot.Modules
       };
 
       monthlyBudget.Budgets.Add(budget);
+      await monthlyBudget.UpdateChannel(Context.Guild);
 
       await _db.SaveChangesAsync();
 
-      // send simple string reply
-      await RespondAsync("", new Embed[] { budget.ToEmbed() });
+      //await DeleteOriginalResponseAsync();
+
+      await ModifyOriginalResponseAsync(msg =>
+      {
+        msg.Content = "";
+        msg.Embed = budget.ToEmbed();
+      });
     }
 
     [SlashCommand("overview", "creates a new budget")]

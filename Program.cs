@@ -77,7 +77,7 @@ namespace BudgetBot
         await client.StartAsync();
 
         // we get the CommandHandler class here and call the InitializeAsync method to start things up for the CommandHandler service
-        await services.GetRequiredService<CommandHandler>().InitializeAsync();
+        //await services.GetRequiredService<CommandHandler>().InitializeAsync();
         await services.GetRequiredService<InteractionHandler>().InitializeAsync();
         //await services.GetRequiredService<MailListener>().InitializeAsync();
 

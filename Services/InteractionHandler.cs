@@ -179,19 +179,26 @@ namespace BudgetBot.Services
 
     public async Task CategorizeSelectedOption(SocketMessageComponent arg, string value)
     {
-      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now);
+      // acknowlege discord interaction
+      await arg.DeferAsync(ephemeral: true);
+
+      SocketGuild guild = null;
+      if (arg.GuildId is ulong guildId)
+        guild = _client.GetGuild(guildId);
+
+      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now, guild);
       var selectedBudget = monthlyBudget.Budgets.Where(b => b.Name == value).FirstOrDefault();
       selectedBudget.AddTransaction(HelperFunctions.SelectedTransaction);
+      await monthlyBudget.UpdateChannel(guild);
       HelperFunctions.SelectedTransaction = null;
       await _db.SaveChangesAsync();
 
-      await arg.UpdateAsync(x =>
+      await arg.ModifyOriginalResponseAsync(x =>
       {
         x.Content = "";
         x.Embed = selectedBudget.ToEmbed();
         x.Components = selectedBudget.GetComponents();
       });
-
     }
     #endregion
 
@@ -210,10 +217,17 @@ namespace BudgetBot.Services
 
     public async Task RolloverCommand(SocketMessageComponent arg)
     {
+      // acknowlege discord interaction
+      await arg.DeferAsync(ephemeral: true);
+
       var budgetCategory = await HelperFunctions.GetBudgetCategory(_db, arg.Message.Embeds.ToList());
       var nextMonth = budgetCategory.MonthlyBudget.Date.AddMonths(1);
 
-      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, nextMonth);
+      SocketGuild guild = null;
+      if (arg.GuildId is ulong guildId)
+        guild = _client.GetGuild(guildId);
+
+      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, nextMonth, guild);
       var nextMonthBudgetCat = monthlyBudget.Budgets.Where(b => b.Name == budgetCategory.Name).FirstOrDefault();
 
       if (nextMonthBudgetCat == null)
@@ -241,10 +255,7 @@ namespace BudgetBot.Services
       await _db.Transfers.AddAsync(transfer);
       await _db.SaveChangesAsync();
 
-      var x = budgetCategory;
-      var y = transfer.OriginalBudgetCategory;
-
-      await arg.UpdateAsync(x =>
+      await arg.ModifyOriginalResponseAsync(x =>
       {
         x.Content = "";
         x.Embeds = new Embed[] { budgetCategory.ToEmbed(), nextMonthBudgetCat.ToEmbed() };
