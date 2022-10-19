@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -71,6 +72,20 @@ namespace BudgetBot.Modules
       return budget;
     }
 
+    public async static Task<MonthlyBudget> GetMonthlyBudget(BudgetBotEntities _db, string channelName, SocketGuild guild = null)
+    {
+      DateTime date = DateTime.Today;
+      var splitName = channelName.Split('-').ToList();
+      if (splitName.Count >= 3)
+      {
+        var year = DateTime.ParseExact(splitName[splitName.Count - 1], "yyyy", CultureInfo.InvariantCulture).Year;
+        var month = DateTime.ParseExact(splitName[splitName.Count - 2], "MMM", CultureInfo.InvariantCulture).Month;
+        date = new DateTime(year, month, 1);
+      }
+
+      return await GetMonthlyBudget(_db, date, guild);
+    }
+
     public async static Task<MonthlyBudget> GetExistingMonthlyBudget(BudgetBotEntities _db, DateTimeOffset date)
     {
       var budget = await _db.MonthlyBudgets
@@ -121,7 +136,7 @@ namespace BudgetBot.Modules
         Budgets = budgetsList
       };
 
-      await monthlyBudget.UpdateChannel(guild);
+      //await monthlyBudget.UpdateChannel(guild);
       await _db.AddAsync(monthlyBudget);
       await _db.SaveChangesAsync();
 

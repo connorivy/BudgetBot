@@ -153,10 +153,13 @@ namespace BudgetBot.Database
       foreach (var budget in Budgets)
         embeds.Add(budget.ToEmbed());
 
-      var messages = (await channel.GetMessagesAsync(5).FlattenAsync()).ToList();
+      var messages = (await channel.GetMessagesAsync(5).FlattenAsync() ?? new List<IMessage>()).ToList();
 
       if (messages.Count == 0)
+      {
         await channel.SendMessageAsync("", false, embeds: embeds.ToArray());
+        return;
+      }
       else if (messages.Count != 1)
         return;
 

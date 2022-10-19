@@ -1,8 +1,12 @@
-﻿using Discord;
+﻿using BudgetBot.Modules;
+using Discord;
+using Discord.WebSocket;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace BudgetBot.Database
 {
@@ -105,6 +109,37 @@ namespace BudgetBot.Database
     public string Name { get; set; }
     public DateTimeOffset MonthlyBudgetDate { get; set; }
     public MonthlyBudget MonthlyBudget { get; set; }
+    public async Task Rollover(BudgetBotEntities _db, SocketGuild guild)
+    {
+      var nextMonth = MonthlyBudgetDate.AddMonths(1);
+
+      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, nextMonth, guild);
+      var nextMonthBudgetCat = monthlyBudget.Budgets.Where(b => b.Name == Name).FirstOrDefault();
+
+      if (nextMonthBudgetCat == null)
+      {
+        nextMonthBudgetCat = new BudgetCategory()
+        {
+          Name = Name,
+          Balance = 0,
+          TargetAmount = TargetAmount
+        };
+        monthlyBudget.Budgets.Add(nextMonthBudgetCat);
+      }
+
+      var transfer = new Transfer()
+      {
+        Amount = TargetAmount - Balance,
+        Date = DateTimeOffset.Now,
+        OriginalBudgetCategory = this,
+        TargetBudgetCategory = nextMonthBudgetCat
+      };
+
+      transfer.Apply();
+
+      await _db.Transfers.AddAsync(transfer);
+      await _db.SaveChangesAsync();
+    }
     public MessageComponent GetComponents()
     {
       if (AmountRemaining > 0)
@@ -145,7 +180,12 @@ namespace BudgetBot.Database
       var numCharacters = 26;
       numCharacters -= AbsBalance.ToString().Length + AbsTargetAmount.ToString().Length;
 
-      var numFirstCharacter = (int)Math.Ceiling(AbsBalance / AbsTargetAmount * numCharacters);
+      var numFirstCharacter = (int)Math.Ceiling(Balance / TargetAmount * numCharacters);
+      if (numFirstCharacter > numCharacters)
+        numFirstCharacter = numCharacters;
+      else if (numFirstCharacter < 0)
+        numFirstCharacter = 0;
+
       var progressBar = $"[{new String('=', numFirstCharacter)}${new StringBuilder().Insert(0, " -", numCharacters - numFirstCharacter)}]";
 
       sb.AppendLine($"${(int)Math.Round(AbsBalance)} {progressBar} ${(int)Math.Round(AbsTargetAmount)}");

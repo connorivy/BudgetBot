@@ -79,6 +79,30 @@ namespace BudgetBot.Modules
       });
     }
 
+    [SlashCommand("rollover", "rolls a budget deficit (or surplus) over to the next month's budget")]
+    public async Task RolloverCommand(string budgetName)
+    {
+      // acknowlege discord interaction
+      await DeferAsync(ephemeral: true);
+
+      var sb = new StringBuilder();
+
+      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, Context.Channel.Name, Context.Guild);
+      var budget = monthlyBudget.Budgets.Where(b => b.Name.ToLower() == budgetName.ToLower()).FirstOrDefault();
+
+      if (budget == null)
+      {
+        await ModifyOriginalResponseAsync(msg => msg.Content = $"There are is no budget named \"{budgetName}\"");
+        return;
+      }
+      await budget.Rollover(_db, Context.Guild);
+
+      await ModifyOriginalResponseAsync(msg =>
+      {
+        msg.Content = "success";
+      });
+    }
+
     [SlashCommand("overview", "creates a new budget")]
     public async Task OverviewCommand()
     {

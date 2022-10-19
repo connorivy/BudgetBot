@@ -197,7 +197,7 @@ namespace BudgetBot.Services
       {
         x.Content = "";
         x.Embed = selectedBudget.ToEmbed();
-        x.Components = selectedBudget.GetComponents();
+        //x.Components = selectedBudget.GetComponents();
       });
     }
     #endregion
