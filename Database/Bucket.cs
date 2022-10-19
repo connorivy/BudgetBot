@@ -140,15 +140,15 @@ namespace BudgetBot.Database
     }
     public override void GetEmbedText(ref EmbedBuilder embed, ref StringBuilder sb)
     {
-      embed.Title = $"**{Name}** : $**{AmountRemaining}** remaining";
+      embed.Title = $"**{Name}** : $**{(int)Math.Round(AmountRemaining)}** left";
 
-      var numCharacters = 25;
+      var numCharacters = 26;
       numCharacters -= AbsBalance.ToString().Length + AbsTargetAmount.ToString().Length;
 
       var numFirstCharacter = (int)Math.Ceiling(AbsBalance / AbsTargetAmount * numCharacters);
-      var progressBar = $"[{new String('=', numFirstCharacter)}>{new StringBuilder().Insert(0, " -", numCharacters - numFirstCharacter)}]";
+      var progressBar = $"[{new String('=', numFirstCharacter)}${new StringBuilder().Insert(0, " -", numCharacters - numFirstCharacter)}]";
 
-      sb.AppendLine($"${AbsBalance} {progressBar} ${AbsTargetAmount}");
+      sb.AppendLine($"${(int)Math.Round(AbsBalance)} {progressBar} ${(int)Math.Round(AbsTargetAmount)}");
     }
     public override decimal Progress => (TargetAmount - Balance) / TargetAmount;
     public override int ColorFloor => 80; //add an offset between 100% budget and 101% budget colors
