@@ -18,6 +18,7 @@ namespace BudgetBot.Database
     public List<Transaction> Transactions { get; set; }
     public decimal AbsBalance => Math.Abs(Balance);
     public decimal AbsTargetAmount => Math.Abs(TargetAmount);
+    public decimal AbsAmountRemaining => Math.Abs(AmountRemaining);
 
     #region shared methods
 
@@ -111,7 +112,7 @@ namespace BudgetBot.Database
     public MonthlyBudget MonthlyBudget { get; set; }
     public async Task Rollover(BudgetBotEntities _db, SocketGuild guild)
     {
-      var nextMonth = MonthlyBudgetDate.AddMonths(1);
+      var nextMonth = MonthlyBudget.Date.AddMonths(1);
 
       var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, nextMonth, guild);
       var nextMonthBudgetCat = monthlyBudget.Budgets.Where(b => b.Name == Name).FirstOrDefault();
@@ -139,6 +140,7 @@ namespace BudgetBot.Database
 
       await _db.Transfers.AddAsync(transfer);
       await _db.SaveChangesAsync();
+      await monthlyBudget.UpdateChannel(guild);
     }
     public MessageComponent GetComponents()
     {
@@ -175,7 +177,7 @@ namespace BudgetBot.Database
     }
     public override void GetEmbedText(ref EmbedBuilder embed, ref StringBuilder sb)
     {
-      embed.Title = $"**{Name}** : $**{(int)Math.Round(AmountRemaining)}** left";
+      embed.Title = $"**{Name}** : $**{(int)Math.Round(AbsAmountRemaining)}** left";
 
       var numCharacters = 26;
       numCharacters -= AbsBalance.ToString().Length + AbsTargetAmount.ToString().Length;

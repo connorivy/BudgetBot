@@ -110,8 +110,18 @@ namespace BudgetBot.Database
       }
       else if (OriginalBudgetCategory != null && TargetBudgetCategory != null)
       {
-        OriginalBudgetCategory.Balance -= Amount;
+        OriginalBudgetCategory.Balance += Amount;
+        TargetBudgetCategory.Balance -= Amount;
+      }
+      else if (OriginalBucket != null && TargetBudgetCategory != null)
+      {
+        OriginalBucket.Balance -= Amount;
         TargetBudgetCategory.Balance += Amount;
+      }
+      else if (OriginalBudgetCategory != null && TargetBucket != null)
+      {
+        OriginalBudgetCategory.Balance -= Amount;
+        TargetBucket.Balance += Amount;
       }
     }
     public void Rollback()
@@ -125,6 +135,16 @@ namespace BudgetBot.Database
       {
         TargetBudgetCategory.Balance += Amount;
         TargetBudgetCategory.Balance -= Amount;
+      }
+      else if (OriginalBucket != null && TargetBudgetCategory != null)
+      {
+        OriginalBucket.Balance += Amount;
+        TargetBudgetCategory.Balance -= Amount;
+      }
+      else if (OriginalBudgetCategory != null && TargetBucket != null)
+      {
+        OriginalBudgetCategory.Balance += Amount;
+        TargetBucket.Balance -= Amount;
       }
     }
   }

@@ -85,22 +85,111 @@ namespace BudgetBot.Modules
       // acknowlege discord interaction
       await DeferAsync(ephemeral: true);
 
-      var sb = new StringBuilder();
-
       var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, Context.Channel.Name, Context.Guild);
       var budget = monthlyBudget.Budgets.Where(b => b.Name.ToLower() == budgetName.ToLower()).FirstOrDefault();
 
       if (budget == null)
       {
-        await ModifyOriginalResponseAsync(msg => msg.Content = $"There are is no budget named \"{budgetName}\"");
+        await ModifyOriginalResponseAsync(msg => msg.Content = $"There are no budgets named \"{budgetName}\"");
         return;
       }
       await budget.Rollover(_db, Context.Guild);
+      await monthlyBudget.UpdateChannel(Context.Guild);
 
       await ModifyOriginalResponseAsync(msg =>
       {
         msg.Content = "success";
       });
+    }
+
+    [Group("transfer", "Subcommand group description")]
+    public class BudgetTransferCommands : InteractionModuleBase<SocketInteractionContext>
+    {
+      public readonly BudgetBotEntities _db;
+      public BudgetTransferCommands(IServiceProvider services)
+      {
+        _db = services.GetRequiredService<BudgetBotEntities>();
+      }
+
+      [SlashCommand("bucket", "transfer the surplus (or deficit) budget to a savings bucket")]
+      public async Task BucketCommand(string budgetName, string bucketName, decimal amount = 0)
+      {
+        // acknowlege discord interaction
+        await DeferAsync(ephemeral: true);
+
+        var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, Context.Channel.Name, Context.Guild);
+        var budget = monthlyBudget.Budgets.Where(b => b.Name.ToLower() == budgetName.ToLower()).FirstOrDefault();
+        var bucket = await _db.Buckets
+          .AsAsyncEnumerable()
+          .Where(b => b.Name.ToLower() == budgetName.ToLower())
+          .FirstOrDefaultAsync();
+
+        if (budget == null || bucket == null)
+        {
+          string content = budget == null ? $"budgets named \"{budgetName}\"" : $"savings buckets named \"{bucketName}\"";
+          await ModifyOriginalResponseAsync(msg => msg.Content = $"There are no {content}");
+          return;
+        }
+
+        var transfer = new Transfer()
+        {
+          Amount = amount == 0 ? budget.AmountRemaining : amount,
+          Date = DateTimeOffset.Now,
+          OriginalBudgetCategory = budget,
+          TargetBucket = bucket
+        };
+
+        transfer.Apply();
+
+        await _db.Transfers.AddAsync(transfer);
+        await _db.SaveChangesAsync();
+
+        await ModifyOriginalResponseAsync(msg =>
+        {
+          msg.Content = "success";
+        });
+      }
+
+      [SlashCommand("budget", "transfer the surplus (or deficit) budget to a savings bucket")]
+      public async Task BudgetCommand(string currentBudget, string targetBudget, decimal amount = 0)
+      {
+        // acknowlege discord interaction
+        await DeferAsync(ephemeral: true);
+
+        var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, Context.Channel.Name, Context.Guild);
+        var budget = monthlyBudget.Budgets.Where(b => b.Name.ToLower() == currentBudget.ToLower()).FirstOrDefault();
+        var nextBudget = monthlyBudget.Budgets.Where(b => b.Name.ToLower() == targetBudget.ToLower()).FirstOrDefault();
+
+        if (budget == null || nextBudget == null)
+        {
+          await ModifyOriginalResponseAsync(msg => msg.Content = $"There are no budgets named \"{(budget == null ? currentBudget : targetBudget)}\"");
+          return;
+        }
+
+        if (amount > budget.AmountRemaining)
+        {
+          await ModifyOriginalResponseAsync(msg => msg.Content = $"The amount entered, ${amount}, is greater than the amount remaining in the budget, {budget.AmountRemaining}");
+          return;
+        }
+
+        var transfer = new Transfer()
+        {
+          Amount = amount == 0 ? budget.AmountRemaining : amount,
+          Date = DateTimeOffset.Now,
+          OriginalBudgetCategory = budget,
+          TargetBudgetCategory = nextBudget
+        };
+
+        transfer.Apply();
+
+        await _db.Transfers.AddAsync(transfer);
+        await _db.SaveChangesAsync();
+
+        await ModifyOriginalResponseAsync(msg =>
+        {
+          msg.Content = "success";
+        });
+      }
     }
 
     [SlashCommand("overview", "creates a new budget")]
