@@ -7,6 +7,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace BudgetBot.Database
 {
@@ -18,7 +19,6 @@ namespace BudgetBot.Database
     public List<Transaction> Transactions { get; set; }
     public decimal AbsBalance => Math.Abs(Balance);
     public decimal AbsTargetAmount => Math.Abs(TargetAmount);
-    public decimal AbsAmountRemaining => Math.Abs(AmountRemaining);
 
     #region shared methods
 
@@ -82,6 +82,25 @@ namespace BudgetBot.Database
     public string Name { get; set; }
     public DateTimeOffset TargetDate { get; set; }
     public TimeSpan TimeRemaining => TargetDate - DateTimeOffset.Now;
+    public decimal StartingAmount { get; set; }
+    public bool IsDebt { get; set; }
+    public async Task UpdateChannel(BudgetBotEntities _db, SocketGuild guild)
+    {
+      var channelId = await HelperFunctions.GetChannelId(guild, "Buckets");
+      var channel = guild.GetTextChannel(channelId);
+
+      var buckets = await _db.Buckets
+          .AsAsyncEnumerable()
+          .Take(50)
+          .Where(b => b.AmountRemaining > 0)
+          .ToListAsync();
+
+      var embeds = new List<Embed>();
+      foreach (var bucket in buckets)
+        embeds.Add(bucket.ToEmbed());
+
+      await HelperFunctions.RefreshEmbeds(embeds, channel);
+    }
 
     # region overrides
     public override decimal AmountRemaining => TargetAmount - Balance;
@@ -98,7 +117,7 @@ namespace BudgetBot.Database
       sb.AppendLine($"Amount Remaining:\t\t{AmountRemaining}");
       sb.AppendLine($"Time Remaining:\t\t{TimeRemaining}");
     }
-    public override decimal Progress => Balance / TargetAmount;
+    public override decimal Progress => IsDebt ? (StartingAmount - Balance) / StartingAmount : Balance / TargetAmount;
     public override int ColorFloor => 0;
     #endregion
   }
@@ -167,9 +186,10 @@ namespace BudgetBot.Database
 
       return builder.Build();
     }
+    public bool isIncome { get; set; }
 
     # region overrides
-    public override decimal AmountRemaining => Balance - TargetAmount;
+    public override decimal AmountRemaining => isIncome ? TargetAmount - Balance : Balance - TargetAmount;
     public override void AddTransaction(Transaction transaction)
     {
       transaction.BudgetCategory = this;
@@ -177,9 +197,9 @@ namespace BudgetBot.Database
     }
     public override void GetEmbedText(ref EmbedBuilder embed, ref StringBuilder sb)
     {
-      embed.Title = $"**{Name}** : $**{(int)Math.Round(AbsAmountRemaining)}** left";
+      embed.Title = $"**{Name}** : $**{(int)Math.Round(AmountRemaining)}** left";
 
-      var numCharacters = 26;
+      var numCharacters = 25;
       numCharacters -= AbsBalance.ToString().Length + AbsTargetAmount.ToString().Length;
 
       var numFirstCharacter = (int)Math.Ceiling(Balance / TargetAmount * numCharacters);
@@ -192,7 +212,7 @@ namespace BudgetBot.Database
 
       sb.AppendLine($"${(int)Math.Round(AbsBalance)} {progressBar} ${(int)Math.Round(AbsTargetAmount)}");
     }
-    public override decimal Progress => (TargetAmount - Balance) / TargetAmount;
+    public override decimal Progress => isIncome ? Balance / TargetAmount : (TargetAmount - Balance) / TargetAmount;
     public override int ColorFloor => 80; //add an offset between 100% budget and 101% budget colors
     #endregion
   }

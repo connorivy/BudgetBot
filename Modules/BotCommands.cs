@@ -33,8 +33,8 @@ namespace BudgetBot.Modules
       _config = services.GetRequiredService<IConfiguration>();
       _db = services.GetRequiredService<BudgetBotEntities>();
 
-      var listCommands = new TransactionCommands.ListCommands(_db);
-      var catCommands = new TransactionCommands.CategorizeCommands(_db);
+      //var listCommands = new TransactionCommands.ListCommands(_db);
+      //var catCommands = new TransactionCommands.CategorizeCommands(_db);
     }
 
     [Command("hello")]
@@ -69,7 +69,7 @@ namespace BudgetBot.Modules
 
       var guildId = Convert.ToUInt64(_config["TEST_GUILD_ID"]);
       var guild = _client.GetGuild(guildId);
-      var channelId = await HelperFunctions.GetChannelId(guild, "budgeting");
+      var channelId = await HelperFunctions.GetChannelId(guild, "transactions-uncategorized");
 
       var channel = guild.GetTextChannel(channelId);
 

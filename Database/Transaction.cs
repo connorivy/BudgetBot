@@ -169,9 +169,10 @@ namespace BudgetBot.Database
       Budgets.Sort((b1, b2) => b1.Name.CompareTo(b2.Name));
 
       var embeds = new List<Embed>();
-
       foreach (var budget in Budgets)
         embeds.Add(budget.ToEmbed());
+
+      await HelperFunctions.RefreshEmbeds(embeds, channel);
 
       var messages = (await channel.GetMessagesAsync(5).FlattenAsync() ?? new List<IMessage>()).ToList();
 

@@ -1,5 +1,6 @@
 ﻿using BudgetBot.Database;
 using Discord;
+using Discord.Rest;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -9,6 +10,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace BudgetBot.Modules
@@ -46,6 +48,31 @@ namespace BudgetBot.Modules
       else
         return cat.Id;
     }
+
+    public async static Task<Bucket> GetExistingBucket(BudgetBotEntities _db, string name, SocketGuild guild = null)
+    {
+      var bucket = await _db.Buckets
+          .AsAsyncEnumerable()
+          .Where(b => b.Name == name)
+          .FirstOrDefaultAsync();
+
+      //if (bucket == null && guild != null)
+      //  bucket = await CreateBucket(_db, name, guild);
+
+      return bucket;
+    }
+
+    //public async static Task<Bucket> CreateBucket(BudgetBotEntities _db, string name, SocketGuild guild = null)
+    //{
+    //  var bucket = new Bucket
+    //  {
+    //    Name = name,
+    //  };
+
+    //  await bucket.UpdateChannel(guild);
+    //  await _db.AddAsync(monthlyBudget);
+    //  await _db.SaveChangesAsync();
+    //}
 
     //public async static Task<BudgetCategory> GetCategory(BudgetBotEntities _db, string cat, DateTimeOffset date)
     //{
@@ -186,6 +213,28 @@ namespace BudgetBot.Modules
       }
 
       return null;
+    }
+
+    public static async Task RefreshEmbeds(List<Embed> embeds, SocketTextChannel channel)
+    {
+      var messages = (await channel.GetMessagesAsync(5).FlattenAsync() ?? new List<IMessage>()).ToList();
+
+      if (messages.Count == 0)
+      {
+        await channel.SendMessageAsync("", false, embeds: embeds.ToArray());
+        return;
+      }
+      else if (messages.Count != 1)
+        return;
+
+      if (messages.First() is RestUserMessage botMessage)
+      {
+        await botMessage.ModifyAsync(msg =>
+        {
+          msg.Content = "";
+          msg.Embeds = embeds.ToArray();
+        });
+      }
     }
   }
 }
