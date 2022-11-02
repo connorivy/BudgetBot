@@ -13,12 +13,17 @@ namespace BudgetBot.Database
 {
   public abstract class BucketBase
   {
+    [Key]
+    public long Id { get; set; }
+    public string Name { get; set; }
     public decimal Balance { get; set; }
+    public decimal StartingAmount { get; set; }
     public decimal TargetAmount { get; set; }
     public string Note { get; set; }
     public List<Transaction> Transactions { get; set; }
     public decimal AbsBalance => Math.Abs(Balance);
     public decimal AbsTargetAmount => Math.Abs(TargetAmount);
+    public decimal Progress => Math.Max(Math.Min((Balance - StartingAmount) / (TargetAmount - StartingAmount), 1), 0);
 
     #region shared methods
 
@@ -27,7 +32,16 @@ namespace BudgetBot.Database
       var sb = new StringBuilder();
       var embed = new EmbedBuilder();
 
-      GetEmbedText(ref embed, ref sb);
+      embed.Title = $"**{Name}** : $**{(int)Math.Round(AmountRemaining)}** left";
+
+      var numCharacters = 25;
+      numCharacters -= AbsBalance.ToString().Length + AbsTargetAmount.ToString().Length;
+
+      var numFirstCharacter = (int)Math.Ceiling((Progress) * numCharacters);
+
+      var progressBar = $"[{new string('=', numFirstCharacter)}${new StringBuilder().Insert(0, " -", numCharacters - numFirstCharacter)}]";
+
+      sb.AppendLine($"${(int)Math.Round(AbsBalance)} {progressBar} ${(int)Math.Round(AbsTargetAmount)}");
 
       embed.Description = sb.ToString();
       embed.Color = GetColor();
@@ -39,7 +53,7 @@ namespace BudgetBot.Database
       var red = 255;
       var green = 0;
 
-      switch (Progress)
+      switch (ColorProgress)
       {
         // green
         case decimal n when (n >= 1):
@@ -47,7 +61,7 @@ namespace BudgetBot.Database
           green = 255;
           break;
         // red
-        case decimal n when (n < 0):
+        case decimal n when (n <= 0):
           red = 255;
           green = 0;
           break;
@@ -70,19 +84,15 @@ namespace BudgetBot.Database
     #region abstract methods
     public abstract decimal AmountRemaining { get; }
     public abstract void AddTransaction(Transaction transaction);
-    public abstract void GetEmbedText(ref EmbedBuilder embed, ref StringBuilder sb);
-    public abstract decimal Progress { get; }
+    public abstract decimal ColorProgress { get; }
     public abstract int ColorFloor { get; }
     #endregion
   }
 
   public class Bucket : BucketBase
   {
-    [Key]
-    public string Name { get; set; }
     public DateTimeOffset TargetDate { get; set; }
     public TimeSpan TimeRemaining => TargetDate - DateTimeOffset.Now;
-    public decimal StartingAmount { get; set; }
     public bool IsDebt { get; set; }
     public async Task UpdateChannel(BudgetBotEntities _db, SocketGuild guild)
     {
@@ -109,26 +119,16 @@ namespace BudgetBot.Database
       transaction.Bucket = this;
       Balance += transaction.Amount;
     }
-    public override void GetEmbedText(ref EmbedBuilder embed, ref StringBuilder sb)
-    {
-      embed.Title = $"Bucket : {Name}";
-      sb.AppendLine($"Balance:\t{Balance}");
-      sb.AppendLine($"Target Amount:\t{TargetAmount}");
-      sb.AppendLine($"Amount Remaining:\t\t{AmountRemaining}");
-      sb.AppendLine($"Time Remaining:\t\t{TimeRemaining}");
-    }
-    public override decimal Progress => IsDebt ? (StartingAmount - Balance) / StartingAmount : Balance / TargetAmount;
+    public override decimal ColorProgress => IsDebt ? Progress : 1 - Progress;
     public override int ColorFloor => 0;
     #endregion
   }
 
   public class BudgetCategory : BucketBase
   {
-    [Key]
-    public long Id { get; set; }
-    public string Name { get; set; }
     public DateTimeOffset MonthlyBudgetDate { get; set; }
     public MonthlyBudget MonthlyBudget { get; set; }
+    public bool isIncome { get; set; }
     public async Task Rollover(BudgetBotEntities _db, SocketGuild guild)
     {
       var nextMonth = MonthlyBudget.Date.AddMonths(1);
@@ -186,7 +186,6 @@ namespace BudgetBot.Database
 
       return builder.Build();
     }
-    public bool isIncome { get; set; }
 
     # region overrides
     public override decimal AmountRemaining => isIncome ? TargetAmount - Balance : Balance - TargetAmount;
@@ -195,24 +194,7 @@ namespace BudgetBot.Database
       transaction.BudgetCategory = this;
       Balance += transaction.Amount;
     }
-    public override void GetEmbedText(ref EmbedBuilder embed, ref StringBuilder sb)
-    {
-      embed.Title = $"**{Name}** : $**{(int)Math.Round(AmountRemaining)}** left";
-
-      var numCharacters = 25;
-      numCharacters -= AbsBalance.ToString().Length + AbsTargetAmount.ToString().Length;
-
-      var numFirstCharacter = (int)Math.Ceiling(Balance / TargetAmount * numCharacters);
-      if (numFirstCharacter > numCharacters)
-        numFirstCharacter = numCharacters;
-      else if (numFirstCharacter < 0)
-        numFirstCharacter = 0;
-
-      var progressBar = $"[{new String('=', numFirstCharacter)}${new StringBuilder().Insert(0, " -", numCharacters - numFirstCharacter)}]";
-
-      sb.AppendLine($"${(int)Math.Round(AbsBalance)} {progressBar} ${(int)Math.Round(AbsTargetAmount)}");
-    }
-    public override decimal Progress => isIncome ? Balance / TargetAmount : (TargetAmount - Balance) / TargetAmount;
+    public override decimal ColorProgress => isIncome ? Progress : 1 - Progress;
     public override int ColorFloor => 80; //add an offset between 100% budget and 101% budget colors
     #endregion
   }

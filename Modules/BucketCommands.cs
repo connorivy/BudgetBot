@@ -28,7 +28,7 @@ namespace BudgetBot.Modules
     }
 
     [SlashCommand("create", "creates a new bucket")]
-    public async Task CreateCommand(string name, decimal limit, bool isDebt = false)
+    public async Task CreateCommand(string name, decimal amount, bool isDebt = false)
     {
       // acknowlege discord interaction
       await DeferAsync(ephemeral: true);
@@ -36,7 +36,7 @@ namespace BudgetBot.Modules
       var sb = new StringBuilder();
 
       name = name.ToLower();
-      limit = Math.Abs(limit);
+      amount = Math.Abs(amount);
 
       var bucket = await HelperFunctions.GetExistingBucket(_db, name, Context.Guild);
 
@@ -52,11 +52,11 @@ namespace BudgetBot.Modules
 
       bucket = new Bucket
       {
-        Balance = isDebt ? limit * -1 : 0,
+        Balance = isDebt ? amount * -1 : 0,
         Name = name,
-        TargetAmount = isDebt ? 0 : limit,
+        TargetAmount = isDebt ? 0 : amount,
         IsDebt = isDebt,
-        StartingAmount = isDebt ? limit * -1 : 0
+        StartingAmount = isDebt ? amount * -1 : 0
       };
 
       await _db.Buckets.AddAsync(bucket);

@@ -163,9 +163,10 @@ namespace BudgetBot.Modules
         Budgets = budgetsList
       };
 
-      await monthlyBudget.UpdateChannel(guild);
       await _db.AddAsync(monthlyBudget);
       await _db.SaveChangesAsync();
+
+      await monthlyBudget.UpdateChannel(guild);
 
       return monthlyBudget;
     }
@@ -231,7 +232,7 @@ namespace BudgetBot.Modules
       {
         await botMessage.ModifyAsync(msg =>
         {
-          msg.Content = "";
+          msg.Content = embeds.Count == 0 ? "Create a budget with \"/budget create\"" : "";
           msg.Embeds = embeds.ToArray();
         });
       }

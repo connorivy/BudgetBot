@@ -60,6 +60,7 @@ namespace BudgetBot.Modules
       var budget = new BudgetCategory
       {
         Balance = 0,
+        StartingAmount = 0,
         Name = name,
         TargetAmount = isIncome ? limit : limit * -1,
         MonthlyBudget = monthlyBudget,

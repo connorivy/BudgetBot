@@ -173,25 +173,6 @@ namespace BudgetBot.Database
         embeds.Add(budget.ToEmbed());
 
       await HelperFunctions.RefreshEmbeds(embeds, channel);
-
-      var messages = (await channel.GetMessagesAsync(5).FlattenAsync() ?? new List<IMessage>()).ToList();
-
-      if (messages.Count == 0)
-      {
-        await channel.SendMessageAsync("", false, embeds: embeds.ToArray());
-        return;
-      }
-      else if (messages.Count != 1)
-        return;
-
-      if (messages.First() is RestUserMessage botMessage)
-      {
-        await botMessage.ModifyAsync(msg =>
-        {
-          msg.Content = "";
-          msg.Embeds = embeds.ToArray();
-        });
-      }
     }
   }
 
