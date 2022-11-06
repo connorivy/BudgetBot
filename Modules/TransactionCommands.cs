@@ -79,6 +79,7 @@ namespace BudgetBot.Modules
         .WithCustomId("categorize");
 
       HelperFunctions.SelectedTransaction = await HelperFunctions.GetTransaction(_db, message.Embeds.ToList());
+      HelperFunctions.TransactionMessage = message;
 
       var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now, Context.Guild);
 

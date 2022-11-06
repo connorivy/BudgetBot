@@ -192,7 +192,8 @@ namespace BudgetBot.Services
       var selectedBudget = monthlyBudget.Budgets.Where(b => b.Name == value).FirstOrDefault();
       selectedBudget.AddTransaction(HelperFunctions.SelectedTransaction);
 
-      var channelId = await HelperFunctions.GetChannelId(guild, "transactions-all");
+      // send message to transactions-categorized
+      var channelId = await HelperFunctions.GetChannelId(guild, "transactions-categorized");
       var channel = guild.GetTextChannel(channelId);
       var botMessage = await HelperFunctions.GetSoloMessage(channel);
 
@@ -206,6 +207,11 @@ namespace BudgetBot.Services
         embeds.Add(HelperFunctions.SelectedTransaction.ToEmbed());
         await HelperFunctions.RefreshEmbeds(embeds, channel);
       }
+
+      // delete message in current channel
+      channelId = await HelperFunctions.GetChannelId(guild, "transactions-uncategorized");
+      channel = guild.GetTextChannel(channelId);
+      await channel.DeleteMessageAsync(HelperFunctions.TransactionMessage);
 
       HelperFunctions.SelectedTransaction = null;
       await _db.SaveChangesAsync();

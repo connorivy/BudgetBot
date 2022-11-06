@@ -18,7 +18,7 @@ namespace BudgetBot.Modules
   public static class HelperFunctions
   {
     public static Transaction SelectedTransaction { get; set; }
-
+    public static IMessage TransactionMessage { get; set; }
     public static SocketGuild Guild { get; set; }
 
     public static async Task<ulong> GetChannelId(SocketGuild guild, string name)
