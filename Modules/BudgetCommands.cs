@@ -122,7 +122,7 @@ namespace BudgetBot.Modules
         var budget = monthlyBudget.Budgets.Where(b => b.Name.ToLower() == budgetName.ToLower()).FirstOrDefault();
         var bucket = await _db.Buckets
           .AsAsyncEnumerable()
-          .Where(b => b.Name.ToLower() == budgetName.ToLower())
+          .Where(b => b.Name.ToLower() == bucketName.ToLower())
           .FirstOrDefaultAsync();
 
         if (budget == null || bucket == null)
@@ -144,6 +144,8 @@ namespace BudgetBot.Modules
 
         await _db.Transfers.AddAsync(transfer);
         await _db.SaveChangesAsync();
+        await monthlyBudget.UpdateChannel(Context.Guild);
+        await bucket.UpdateChannel(_db, Context.Guild);
 
         await ModifyOriginalResponseAsync(msg =>
         {

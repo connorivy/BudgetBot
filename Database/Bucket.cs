@@ -34,12 +34,14 @@ namespace BudgetBot.Database
 
       embed.Title = $"**{Name}** : $**{(int)Math.Round(AmountRemaining)}** left";
 
-      var numCharacters = 25;
+      var numCharacters = 28;
       numCharacters -= AbsBalance.ToString().Length + AbsTargetAmount.ToString().Length;
 
       var numFirstCharacter = (int)Math.Ceiling((Progress) * numCharacters);
 
-      var progressBar = $"[{new string('=', numFirstCharacter)}${new StringBuilder().Insert(0, " -", numCharacters - numFirstCharacter)}]";
+      //var progressBar = $"[{new string('=', numFirstCharacter)}${new StringBuilder().Insert(0, " -", numCharacters - numFirstCharacter)}]";
+
+      var progressBar = $"[`{new StringBuilder().Insert(0, "=", numFirstCharacter)}>{new StringBuilder().Insert(0, " ", numCharacters - numFirstCharacter)}`]";
 
       sb.AppendLine($"${(int)Math.Round(AbsBalance)} {progressBar} ${(int)Math.Round(AbsTargetAmount)}");
 
@@ -119,7 +121,7 @@ namespace BudgetBot.Database
       transaction.Bucket = this;
       Balance += transaction.Amount;
     }
-    public override decimal ColorProgress => IsDebt ? Progress : 1 - Progress;
+    public override decimal ColorProgress => Progress;
     public override int ColorFloor => 0;
     #endregion
   }
@@ -191,6 +193,12 @@ namespace BudgetBot.Database
     public override decimal AmountRemaining => isIncome ? TargetAmount - Balance : Balance - TargetAmount;
     public override void AddTransaction(Transaction transaction)
     {
+      if (transaction.BudgetCategory != null)
+      {
+        if (transaction.BudgetCategory == this)
+          return;
+        transaction.BudgetCategory.Balance -= transaction.Amount;
+      }
       transaction.BudgetCategory = this;
       Balance += transaction.Amount;
     }

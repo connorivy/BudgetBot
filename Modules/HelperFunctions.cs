@@ -216,26 +216,31 @@ namespace BudgetBot.Modules
       return null;
     }
 
-    public static async Task RefreshEmbeds(List<Embed> embeds, SocketTextChannel channel)
+    public static async Task<RestUserMessage> GetSoloMessage(SocketTextChannel channel)
     {
       var messages = (await channel.GetMessagesAsync(5).FlattenAsync() ?? new List<IMessage>()).ToList();
 
-      if (messages.Count == 0)
+      if (messages.Count == 1 && messages.First() is RestUserMessage botMessage)
+        return botMessage;
+
+      return null;
+    }
+
+    public static async Task RefreshEmbeds(List<Embed> embeds, SocketTextChannel channel)
+    {
+      var botMessage = await GetSoloMessage(channel);
+
+      if (botMessage == null)
       {
         await channel.SendMessageAsync("", false, embeds: embeds.ToArray());
         return;
       }
-      else if (messages.Count != 1)
-        return;
 
-      if (messages.First() is RestUserMessage botMessage)
+      await botMessage.ModifyAsync(msg =>
       {
-        await botMessage.ModifyAsync(msg =>
-        {
-          msg.Content = embeds.Count == 0 ? "Create a budget with \"/budget create\"" : "";
-          msg.Embeds = embeds.ToArray();
-        });
-      }
+        msg.Content = embeds.Count == 0 ? "Create a budget with \"/budget create\"" : "";
+        msg.Embeds = embeds.ToArray();
+      });
     }
   }
 }

@@ -41,6 +41,9 @@ namespace BudgetBot.Database
       sb.AppendLine($"Amount:\t\t${AbsAmount}");
       sb.AppendLine($"Merchant:\t\t{Merchant}");
       sb.AppendLine($"Date:\t\t{Date:f}");
+      if (BudgetCategory != null)
+        sb.AppendLine($"Budget:\t\t{BudgetCategory.Name}");
+
       embed.Description = sb.ToString();
       embed.Color = GetColor();
 

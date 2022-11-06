@@ -10,6 +10,8 @@ using Discord.Interactions;
 using System.Linq;
 using BudgetBot.Modules;
 using BudgetBot.Database;
+using Discord.Net;
+using System.Collections.Generic;
 
 namespace BudgetBot.Services
 {
@@ -189,9 +191,25 @@ namespace BudgetBot.Services
       var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now, guild);
       var selectedBudget = monthlyBudget.Budgets.Where(b => b.Name == value).FirstOrDefault();
       selectedBudget.AddTransaction(HelperFunctions.SelectedTransaction);
-      await monthlyBudget.UpdateChannel(guild);
+
+      var channelId = await HelperFunctions.GetChannelId(guild, "transactions-all");
+      var channel = guild.GetTextChannel(channelId);
+      var botMessage = await HelperFunctions.GetSoloMessage(channel);
+
+      if (botMessage == null)
+      {
+        await channel.SendMessageAsync("", false, embeds: new Embed[] { HelperFunctions.SelectedTransaction.ToEmbed() });
+      }
+      else
+      {
+        var embeds = botMessage.Embeds.ToList();
+        embeds.Add(HelperFunctions.SelectedTransaction.ToEmbed());
+        await HelperFunctions.RefreshEmbeds(embeds, channel);
+      }
+
       HelperFunctions.SelectedTransaction = null;
       await _db.SaveChangesAsync();
+      await monthlyBudget.UpdateChannel(guild);
 
       await arg.ModifyOriginalResponseAsync(x =>
       {
