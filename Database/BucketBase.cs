@@ -98,7 +98,7 @@ namespace BudgetBot.Database
     public bool IsDebt { get; set; }
     public async Task UpdateChannel(BudgetBotEntities _db, SocketGuild guild)
     {
-      var channelId = await HelperFunctions.GetChannelId(guild, "Buckets");
+      var channelId = await HelperFunctions.GetChannelId(guild, "Buckets", HelperFunctions.BudgetCategoryName);
       var channel = guild.GetTextChannel(channelId);
 
       var buckets = await _db.Buckets
@@ -118,6 +118,12 @@ namespace BudgetBot.Database
     public override decimal AmountRemaining => TargetAmount - Balance;
     public override void AddTransaction(Transaction transaction)
     {
+      if (transaction.Bucket != null)
+      {
+        if (transaction.Bucket == this)
+          return;
+        transaction.Bucket.Balance -= transaction.Amount;
+      }
       transaction.Bucket = this;
       Balance += transaction.Amount;
     }

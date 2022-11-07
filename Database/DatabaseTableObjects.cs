@@ -43,6 +43,8 @@ namespace BudgetBot.Database
       sb.AppendLine($"Date:\t\t{Date:f}");
       if (BudgetCategory != null)
         sb.AppendLine($"Budget:\t\t{BudgetCategory.Name}");
+      if (Bucket != null)
+        sb.AppendLine($"Bucket:\t\t{Bucket.Name}");
 
       embed.Description = sb.ToString();
       embed.Color = GetColor();
@@ -166,7 +168,7 @@ namespace BudgetBot.Database
 
     public async Task UpdateChannel(SocketGuild guild)
     {
-      var channelId = await HelperFunctions.GetChannelId(guild, Name);
+      var channelId = await HelperFunctions.GetChannelId(guild, Name, HelperFunctions.BudgetCategoryName);
       var channel = guild.GetTextChannel(channelId);
 
       Budgets.Sort((b1, b2) => b1.Name.CompareTo(b2.Name));

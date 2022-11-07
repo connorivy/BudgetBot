@@ -20,15 +20,18 @@ namespace BudgetBot.Modules
     public static Transaction SelectedTransaction { get; set; }
     public static IMessage TransactionMessage { get; set; }
     public static SocketGuild Guild { get; set; }
+    public static string BudgetCategoryName = "Budgets";
+    public static string TransactionCategoryName = "Transactions";
 
-    public static async Task<ulong> GetChannelId(SocketGuild guild, string name)
+    public static async Task<ulong> GetChannelId(SocketGuild guild, string name, string guildCatName = null)
     {
       name = name.ToLower().Replace(" ", "-");
       var channel = guild.Channels.SingleOrDefault(x => x.Name == name);
 
       if (channel == null) // there is no channel with the provided name
       {
-        var channelCategoryId = await GetChannelCategory(guild, "BudgetBot");
+        guildCatName ??= BudgetCategoryName;
+        var channelCategoryId = await GetChannelCategory(guild, guildCatName);
         // create the channel
         var newChannel = await guild.CreateTextChannelAsync(name, b => b.CategoryId = channelCategoryId);
         return newChannel.Id;
@@ -157,6 +160,16 @@ namespace BudgetBot.Modules
 
     public static async Task<Transaction> GetTransaction(BudgetBotEntities _db, List<IEmbed> embeds)
     {
+      var transactionId = GetTransactionIdFromEmbeds(embeds);
+      if (!(transactionId is long id))
+        return null;
+
+      var transaction = await GetTransaction(_db, id);
+      return transaction;
+    }
+
+    public static long? GetTransactionIdFromEmbeds(List<IEmbed> embeds)
+    {
       if (embeds.Count != 1)
         return null;
 
@@ -164,15 +177,18 @@ namespace BudgetBot.Modules
       if (titleParts.Length == 2)
       {
         var id = long.Parse(titleParts[1].Trim());
-
-        var transaction = await _db.Transactions
-          .AsAsyncEnumerable()
-          .Where(b => b.Id == id)
-          .FirstOrDefaultAsync();
-        return transaction;
+        return id;
       }
-
       return null;
+    }
+
+    public static async Task<Transaction> GetTransaction(BudgetBotEntities _db, long transactionId)
+    {
+      var transaction = await _db.Transactions
+        .AsAsyncEnumerable()
+        .Where(b => b.Id == transactionId)
+        .FirstOrDefaultAsync();
+      return transaction;
     }
 
     public static async Task<BudgetCategory> GetBudgetCategory(BudgetBotEntities _db, List<Embed> embeds)

@@ -13,7 +13,7 @@ namespace BudgetBot.Modules
   {
     private DiscordSocketClient _client;
     private readonly IConfiguration _config;
-    public readonly BudgetBotEntities _db;
+    private readonly BudgetBotEntities _db;
 
     public BotCommands(IServiceProvider services)
     {
@@ -39,7 +39,7 @@ namespace BudgetBot.Modules
 
       var guildId = Convert.ToUInt64(_config["TEST_GUILD_ID"]);
       var guild = _client.GetGuild(guildId);
-      var channelId = await HelperFunctions.GetChannelId(guild, "transactions-uncategorized");
+      var channelId = await HelperFunctions.GetChannelId(guild, "transactions-uncategorized", HelperFunctions.TransactionCategoryName);
 
       var channel = guild.GetTextChannel(channelId);
 

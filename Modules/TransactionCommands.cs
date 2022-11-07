@@ -1,10 +1,12 @@
 ﻿using BudgetBot.Database;
 using Discord;
 using Discord.Interactions;
+using Discord.Rest;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,8 +20,7 @@ namespace BudgetBot.Modules
   {
     private DiscordSocketClient _client;
     private readonly IConfiguration _config;
-    public static BudgetBotEntities _db;
-
+    private readonly BudgetBotEntities _db;
 
     public TransactionCommands(IServiceProvider services)
     {
@@ -68,57 +69,78 @@ namespace BudgetBot.Modules
     }
     #endregion
 
-    [Group("categorize", "Subcommand group description")]
-    public class CategorizeCommands : InteractionModuleBase<SocketInteractionContext>
+    [Group("categorize", "categorize commands for transactions")]
+    public class TransactionCategorizeCommands : InteractionModuleBase<SocketInteractionContext>
     {
-      public readonly BudgetBotEntities _db;
-      public CategorizeCommands(BudgetBotEntities db)
+      private DiscordSocketClient _client;
+      private readonly IConfiguration _config;
+      public BudgetBotEntities _db;
+
+      public TransactionCategorizeCommands(IServiceProvider services)
       {
-        _db = db;
+        _client = services.GetRequiredService<DiscordSocketClient>();
+        _config = services.GetRequiredService<IConfiguration>();
+        _db = services.GetRequiredService<BudgetBotEntities>();
       }
 
-      [SlashCommand("bucket", "flag a recent transaction as a transfer to a bucket")]
-      public async Task BucketCommand(int limit = 25)
+      [SlashCommand("bucket", "categorize a transaction as a withdrawal from a bucket")]
+      public async Task BucketCommand(int transactionId, string bucketName)
       {
-        var sb = new StringBuilder();
-        var embed = new EmbedBuilder();
+        // acknowlege discord interaction
+        await DeferAsync(ephemeral: true);
 
-        var transactions = new List<Transaction>();
+        var transaction = await HelperFunctions.GetTransaction(_db, transactionId);
+        var bucket = await HelperFunctions.GetExistingBucket(_db, bucketName, Context.Guild);
 
-        transactions = await _db.Transactions
-          .AsQueryable()
-          .Take(limit)
-          .Where(b => b.Bucket == null)
-          .ToListAsync();
+        SocketGuild guild = Context.Guild;
 
-        if (transactions.Count > 0)
+        bucket.AddTransaction(transaction);
+
+        // edit embed in buckets
+        var channelId = await HelperFunctions.GetChannelId(guild, "transactions-categorized", HelperFunctions.TransactionCategoryName);
+        var channel = guild.GetTextChannel(channelId);
+        var botMessage = await HelperFunctions.GetSoloMessage(channel);
+
+        if (botMessage == null)
         {
-          foreach (var transaction in transactions)
-          {
-            sb.AppendLine($"${transaction.Amount} {transaction.Merchant}");
-          }
+          await channel.SendMessageAsync("", false, embeds: new Embed[] { transaction.ToEmbed() });
         }
         else
         {
-          sb.AppendLine("No transactions found!");
+          var embeds = botMessage.Embeds.ToList();
+          embeds.Add(transaction.ToEmbed());
+          await HelperFunctions.RefreshEmbeds(embeds, channel);
         }
 
-        // set embed
-        embed.Title = "Transactions";
-        embed.Description = sb.ToString();
+        // delete message in transactions-uncategorized channel (if applicable)
+        channelId = await HelperFunctions.GetChannelId(guild, "transactions-uncategorized", HelperFunctions.TransactionCategoryName);
+        channel = guild.GetTextChannel(channelId);
+        var messages = await channel.GetMessagesAsync(50).FlattenAsync();
 
-        // send embed reply
-        await RespondAsync("", new Embed[] { embed.Build() });
-      }
-    }
+        IMessage messageInChannel = null;
+        foreach (var msg in messages)
+        {
+          if (!(msg is IMessage m))
+            continue;
 
-    [Group("list", "Subcommand group description")]
-    public class ListCommands : InteractionModuleBase<SocketInteractionContext>
-    {
-      public readonly BudgetBotEntities _db;
-      public ListCommands(BudgetBotEntities db)
-      {
-        _db = db;
+          if (HelperFunctions.GetTransactionIdFromEmbeds(m.Embeds.ToList()) == transactionId)
+          {
+            messageInChannel = m;
+            break;
+          }
+        }
+
+        if (messageInChannel != null)
+          await channel.DeleteMessageAsync(messageInChannel);
+
+        await _db.SaveChangesAsync();
+        await bucket.UpdateChannel(_db, guild);
+
+        await ModifyOriginalResponseAsync(msg =>
+        {
+          msg.Content = " ";
+          msg.Embed = bucket.ToEmbed();
+        });
       }
     }
   }

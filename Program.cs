@@ -14,6 +14,7 @@ using Discord.Interactions;
 using BudgetBot.Modules;
 using BudgetBot.Database;
 using static BudgetBot.Modules.BudgetCommands;
+using static BudgetBot.Modules.TransactionCommands;
 
 namespace BudgetBot
 {
@@ -24,7 +25,6 @@ namespace BudgetBot
     private DiscordSocketClient _client;
     private static string _logLevel;
     private InteractionService _interactions;
-    //private CommandService _commands;
     private ulong _testGuildId;
 
     static void Main(string[] args = null)
@@ -66,9 +66,6 @@ namespace BudgetBot
         var interactions = services.GetRequiredService<InteractionService>();
         _interactions = interactions;
 
-        //var commands = services.GetRequiredService<CommandService>();
-        //_commands = commands;
-
         // setup logging and the ready event
         services.GetRequiredService<LoggingService>();
         client.Ready += ReadyAsync;
@@ -77,8 +74,6 @@ namespace BudgetBot
         await client.LoginAsync(TokenType.Bot, _config["BOT_TOKEN"]);
         await client.StartAsync();
 
-        // we get the CommandHandler class here and call the InitializeAsync method to start things up for the CommandHandler service
-        //await services.GetRequiredService<CommandHandler>().InitializeAsync();
         await services.GetRequiredService<InteractionHandler>().InitializeAsync();
         await services.GetRequiredService<MailListener>().InitializeAsync();
 
@@ -116,21 +111,20 @@ namespace BudgetBot
       // using csharpi.Services;
       // the config we build is also added, which comes in handy for setting the command prefix!
       var services = new ServiceCollection()
-          .AddSingleton(_config)
-          .AddSingleton<DiscordSocketClient>()
-          .AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()))
-          .AddSingleton<InteractionHandler>()
-          //.AddSingleton<CommandService>()
-          //.AddSingleton<CommandHandler>()
-          .AddSingleton<LoggingService>()
-          .AddScoped<BotCommands>()
-          .AddScoped<BucketCommands>()
-          .AddScoped<TransactionCommands>()
-          .AddScoped<BudgetCommands>()
-          .AddScoped<BudgetTransferCommands>()
-          .AddSingleton<MailListener>()
-          .AddDbContext<BudgetBotEntities>()
-          .AddLogging(configure => configure.AddSerilog());
+        .AddSingleton(_config)
+        .AddSingleton<DiscordSocketClient>()
+        .AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()))
+        .AddSingleton<InteractionHandler>()
+        .AddSingleton<LoggingService>()
+        .AddScoped<BotCommands>()
+        .AddScoped<BucketCommands>()
+        .AddScoped<TransactionCommands>()
+        .AddScoped<TransactionCategorizeCommands>()
+        .AddScoped<BudgetCommands>()
+        .AddScoped<BudgetTransferCommands>()
+        .AddSingleton<MailListener>()
+        .AddDbContext<BudgetBotEntities>()
+        .AddLogging(configure => configure.AddSerilog());
 
       if (!string.IsNullOrEmpty(_logLevel))
       {

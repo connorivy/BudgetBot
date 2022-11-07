@@ -193,7 +193,7 @@ namespace BudgetBot.Services
       selectedBudget.AddTransaction(HelperFunctions.SelectedTransaction);
 
       // send message to transactions-categorized
-      var channelId = await HelperFunctions.GetChannelId(guild, "transactions-categorized");
+      var channelId = await HelperFunctions.GetChannelId(guild, "transactions-categorized", HelperFunctions.TransactionCategoryName);
       var channel = guild.GetTextChannel(channelId);
       var botMessage = await HelperFunctions.GetSoloMessage(channel);
 
@@ -209,7 +209,7 @@ namespace BudgetBot.Services
       }
 
       // delete message in current channel
-      channelId = await HelperFunctions.GetChannelId(guild, "transactions-uncategorized");
+      channelId = await HelperFunctions.GetChannelId(guild, "transactions-uncategorized", HelperFunctions.TransactionCategoryName);
       channel = guild.GetTextChannel(channelId);
       await channel.DeleteMessageAsync(HelperFunctions.TransactionMessage);
 
