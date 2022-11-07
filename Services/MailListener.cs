@@ -79,11 +79,6 @@ namespace BudgetBot.Services
       _botCommands = botCommands;
     }
 
-    async Task GetValues()
-    {
-
-    }
-
     async Task ReconnectAsync()
     {
       if (!client.IsConnected)

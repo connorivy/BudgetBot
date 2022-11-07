@@ -194,47 +194,5 @@ namespace BudgetBot.Modules
         });
       }
     }
-
-    [SlashCommand("overview", "creates a new budget")]
-    public async Task OverviewCommand()
-    {
-      var sb = new StringBuilder();
-      var progressLineFull = "---------------------------------------------------";
-
-      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now);
-      monthlyBudget.Budgets ??= new List<BudgetCategory>();
-
-      if (monthlyBudget.Budgets == null || monthlyBudget.Budgets.Count == 0)
-      {
-        sb.AppendLine($"{monthlyBudget.Name} has no categorized budgets.");
-        await RespondAsync(sb.ToString());
-        return;
-      }
-
-      monthlyBudget.Budgets.Sort((b1,b2) => b1.Balance.CompareTo(b2.Balance));
-      var maxSpending = monthlyBudget.Budgets[0].Balance;
-
-      //foreach (var budget in monthlyBudget.Budgets)
-      //{
-      //  sb.AppendLine(budget)
-      //}
-
-      //if (monthlyBudget.Budgets.Any(x => x.Name == name))
-      //{
-      //  sb.AppendLine($"There is already a budget named {name} for {monthlyBudget.Date:Y}");
-      //  await RespondAsync(sb.ToString());
-      //  return;
-      //}
-
-      //monthlyBudget.Budgets.Add(budget);
-
-      //_db.Update(monthlyBudget);
-      //_db.SaveChanges();
-
-      //monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now);
-
-      //// send simple string reply
-      //await RespondAsync("", new Embed[] { budget.ToEmbed() });
-    }
   }
 }

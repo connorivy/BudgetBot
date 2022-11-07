@@ -24,7 +24,7 @@ namespace BudgetBot
     private DiscordSocketClient _client;
     private static string _logLevel;
     private InteractionService _interactions;
-    private CommandService _commands;
+    //private CommandService _commands;
     private ulong _testGuildId;
 
     static void Main(string[] args = null)
@@ -66,8 +66,8 @@ namespace BudgetBot
         var interactions = services.GetRequiredService<InteractionService>();
         _interactions = interactions;
 
-        var commands = services.GetRequiredService<CommandService>();
-        _commands = commands;
+        //var commands = services.GetRequiredService<CommandService>();
+        //_commands = commands;
 
         // setup logging and the ready event
         services.GetRequiredService<LoggingService>();
@@ -120,8 +120,8 @@ namespace BudgetBot
           .AddSingleton<DiscordSocketClient>()
           .AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()))
           .AddSingleton<InteractionHandler>()
-          .AddSingleton<CommandService>()
-          .AddSingleton<CommandHandler>()
+          //.AddSingleton<CommandService>()
+          //.AddSingleton<CommandHandler>()
           .AddSingleton<LoggingService>()
           .AddScoped<BotCommands>()
           .AddScoped<BucketCommands>()

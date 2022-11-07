@@ -4,8 +4,6 @@ using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
-using System.Collections.Generic;
-using System.Security.Cryptography.Xml;
 using System.Text;
 using System.Threading.Tasks;
 

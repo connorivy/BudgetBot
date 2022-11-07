@@ -1,20 +1,10 @@
-﻿using Discord;
-using Discord.Net;
-using Discord.WebSocket;
+﻿using Discord.WebSocket;
 using Discord.Commands;
 using System;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
-using Discord.Interactions;
 using BudgetBot.Database;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using System.Windows.Input;
-using Microsoft.EntityFrameworkCore;
-using System.Threading.Channels;
 
 namespace BudgetBot.Modules
 {
@@ -32,26 +22,6 @@ namespace BudgetBot.Modules
       _client = services.GetRequiredService<DiscordSocketClient>();
       _config = services.GetRequiredService<IConfiguration>();
       _db = services.GetRequiredService<BudgetBotEntities>();
-
-      //var listCommands = new TransactionCommands.ListCommands(_db);
-      //var catCommands = new TransactionCommands.CategorizeCommands(_db);
-    }
-
-    [Command("hello")]
-    public async Task HelloCommand()
-    {
-      // initialize empty string builder for reply
-      var sb = new StringBuilder();
-
-      // get user info from the Context
-      var user = Context.User;
-
-      // build out the reply
-      sb.AppendLine($"You are -> [{user.Username}]");
-      sb.AppendLine("I must now say, World!");
-
-      // send simple string reply
-      await ReplyAsync(sb.ToString());
     }
 
     public async Task NotifyOfTransaction(string creditCardEnding, decimal transactionAmount, string merchant, DateTimeOffset? date)

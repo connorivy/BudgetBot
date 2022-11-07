@@ -62,27 +62,6 @@ namespace BudgetBot.Modules
       return bucket;
     }
 
-    //public async static Task<Bucket> CreateBucket(BudgetBotEntities _db, string name, SocketGuild guild = null)
-    //{
-    //  var bucket = new Bucket
-    //  {
-    //    Name = name,
-    //  };
-
-    //  await bucket.UpdateChannel(guild);
-    //  await _db.AddAsync(monthlyBudget);
-    //  await _db.SaveChangesAsync();
-    //}
-
-    //public async static Task<BudgetCategory> GetCategory(BudgetBotEntities _db, string cat, DateTimeOffset date)
-    //{
-    //  var budget = await GetMonthlyBudget(_db, date);
-    //  var category = budget.Budgets.Where(x => x.Name == cat).FirstOrDefault();
-
-    //  return category;
-    //}
-
-    //private static MonthlyBudget _currentBudget;
     public async static Task<MonthlyBudget> GetMonthlyBudget(BudgetBotEntities _db, DateTimeOffset date, SocketGuild guild = null)
     {
       // cache the current budget
