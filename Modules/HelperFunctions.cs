@@ -116,11 +116,7 @@ namespace BudgetBot.Modules
     public async static Task<MonthlyBudget> CreateMonthlyBudget(BudgetBotEntities _db, DateTimeOffset date, SocketGuild guild)
     {
       MonthlyBudget monthlyBudget = null;
-      var defaultTemplate = await _db.MonthlyBudgetTemplates
-          .AsAsyncEnumerable()
-          .Take(25)
-          .Where(b => b.IsDefault == true)
-          .FirstOrDefaultAsync();
+      var defaultTemplate = await GetDefaultBudgetTemplate(_db);
 
       var budgetName = $"Budget {date:MMM} {date:yyyy}";
       var budgetsList = new List<BudgetCategory>();
@@ -151,6 +147,17 @@ namespace BudgetBot.Modules
       await monthlyBudget.UpdateChannel(guild);
 
       return monthlyBudget;
+    }
+
+    public async static Task<MonthlyBudgetTemplate> GetDefaultBudgetTemplate(BudgetBotEntities _db)
+    {
+      var defaultTemplate = await _db.MonthlyBudgetTemplates
+          .AsAsyncEnumerable()
+          .Take(25)
+          .Where(b => b.IsDefault == true)
+          .FirstOrDefaultAsync();
+
+      return defaultTemplate;
     }
 
     public static DateTimeOffset GetEndOfMonth(DateTimeOffset date)

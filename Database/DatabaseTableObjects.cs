@@ -171,7 +171,7 @@ namespace BudgetBot.Database
       var channelId = await HelperFunctions.GetChannelId(guild, Name, HelperFunctions.BudgetCategoryName);
       var channel = guild.GetTextChannel(channelId);
 
-      Budgets.Sort((b1, b2) => b1.Name.CompareTo(b2.Name));
+      Budgets = Budgets.OrderByDescending(b => b.IsIncome).ThenBy(b => b.Name).ToList();
 
       var embeds = new List<Embed>();
       foreach (var budget in Budgets)

@@ -136,7 +136,7 @@ namespace BudgetBot.Database
   {
     public DateTimeOffset MonthlyBudgetDate { get; set; }
     public MonthlyBudget MonthlyBudget { get; set; }
-    public bool isIncome { get; set; }
+    public bool IsIncome { get; set; }
     public async Task Rollover(BudgetBotEntities _db, SocketGuild guild)
     {
       var nextMonth = MonthlyBudget.Date.AddMonths(1);
@@ -196,7 +196,7 @@ namespace BudgetBot.Database
     }
 
     # region overrides
-    public override decimal AmountRemaining => isIncome ? TargetAmount - Balance : Balance - TargetAmount;
+    public override decimal AmountRemaining => IsIncome ? TargetAmount - Balance : Balance - TargetAmount;
     public override void AddTransaction(Transaction transaction)
     {
       if (transaction.BudgetCategory != null)
@@ -208,7 +208,7 @@ namespace BudgetBot.Database
       transaction.BudgetCategory = this;
       Balance += transaction.Amount;
     }
-    public override decimal ColorProgress => isIncome ? Progress : 1 - Progress;
+    public override decimal ColorProgress => IsIncome ? Progress : 1 - Progress;
     public override int ColorFloor => 80; //add an offset between 100% budget and 101% budget colors
     #endregion
   }

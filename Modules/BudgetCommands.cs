@@ -62,6 +62,7 @@ namespace BudgetBot.Modules
         Balance = 0,
         StartingAmount = 0,
         Name = name,
+        IsIncome = isIncome,
         TargetAmount = isIncome ? limit : limit * -1,
         MonthlyBudget = monthlyBudget,
       };
@@ -78,6 +79,81 @@ namespace BudgetBot.Modules
         msg.Content = "";
         msg.Embed = budget.ToEmbed();
       });
+    }
+
+    [SlashCommand("edit", "edit an existing budget")]
+    public async Task EditCommand(string budgetName, decimal? limit = null, bool? isIncome = null, bool editTemplate = false)
+    {
+      // acknowlege discord interaction
+      await DeferAsync(ephemeral: true);
+
+      var sb = new StringBuilder();
+
+      budgetName = budgetName.ToLower();
+      if (limit != null)
+        limit = Math.Abs((decimal)limit);
+
+      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now, Context.Guild);
+      monthlyBudget.Budgets ??= new List<BudgetCategory>();
+
+      var budget = monthlyBudget.Budgets.Where(b => b.Name == budgetName).FirstOrDefault();
+      if (budget == null)
+      {
+        sb.AppendLine($"There is no budget named {budgetName} for {monthlyBudget.Date:Y}");
+        await ModifyOriginalResponseAsync(msg =>
+        {
+          msg.Content = sb.ToString();
+        });
+        return;
+      }
+
+      if (editTemplate)
+      {
+        var template = await HelperFunctions.GetDefaultBudgetTemplate(_db);
+        if (template == null)
+        {
+          sb.AppendLine($"There is no default budget template");
+          await ModifyOriginalResponseAsync(msg =>
+          {
+            msg.Content = sb.ToString();
+          });
+          return;
+        }
+
+        var templateBudget = template.Budgets.Where(b => b.Name == budgetName).FirstOrDefault();
+        if (templateBudget == null)
+        {
+          sb.AppendLine($"There is no budget named {budgetName} in the default budget template, {template.Name}");
+          await ModifyOriginalResponseAsync(msg =>
+          {
+            msg.Content = sb.ToString();
+          });
+          return;
+        }
+
+        EditBudget(templateBudget, limit, isIncome);
+      }
+
+      EditBudget(budget, limit, isIncome);
+
+      await _db.SaveChangesAsync();
+      await monthlyBudget.UpdateChannel(Context.Guild);
+      await ModifyOriginalResponseAsync(msg =>
+      {
+        msg.Content = "";
+        msg.Embed = budget.ToEmbed();
+      });
+    }
+
+    private void EditBudget(BudgetCategory budget, decimal? limit = null, bool? isIncome = null)
+    {
+      if (isIncome != null)
+        budget.IsIncome = (bool)isIncome;
+      else
+        isIncome = budget.IsIncome;
+
+      if (limit != null)
+        budget.TargetAmount = (bool)isIncome ? (decimal)limit : (decimal)limit * -1;
     }
 
     [SlashCommand("rollover", "rolls a budget deficit (or surplus) over to the next month's budget")]
