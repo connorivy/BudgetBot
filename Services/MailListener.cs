@@ -95,7 +95,6 @@ namespace BudgetBot.Services
     async Task FetchMessageSummariesAsync(bool print)
     {
       IList<IMessageSummary> fetched = null;
-
       do
       {
         try
@@ -118,6 +117,11 @@ namespace BudgetBot.Services
         }
       } while (true);
 
+      await HandleMessages(fetched);
+    }
+
+    async Task HandleMessages(IList<IMessageSummary> fetched)
+    {
       foreach (var message in fetched)
       {
         if (message.Flags == MessageFlags.Seen)
@@ -143,7 +147,7 @@ namespace BudgetBot.Services
                   if (table.ChildNodes.Count == 4)
                   {
                     creditCardEnding = table.ChildNodes[0].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Trim();
-                    var transactionAmountString = table.ChildNodes[1].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Replace("$","").Trim();
+                    var transactionAmountString = table.ChildNodes[1].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Replace("$", "").Trim();
                     transactionAmount = Convert.ToDecimal(transactionAmountString) * -1;
                     merchant = table.ChildNodes[2].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Trim();
                   }
@@ -325,6 +329,9 @@ namespace BudgetBot.Services
       var folder = (ImapFolder)sender;
 
       Console.WriteLine("{0}: flags have changed for message #{1} ({2}).", folder, e.Index, e.Flags);
+
+      messagesArrived = true;
+      done?.Cancel();
     }
 
     public void Exit()
