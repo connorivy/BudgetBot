@@ -54,9 +54,7 @@ namespace BudgetBot.Modules
       }
 
       foreach( var budget in monthlyBudget.Budgets)
-      {
-        smb.AddOption(budget.Name, budget.Name, $"Amount remaining in budget: ${budget.AmountRemaining}");
-      }
+        smb.AddOption(budget.Name, budget.Id.ToString(), $"Amount remaining in budget: ${budget.AmountRemaining}");
 
       var builder = new ComponentBuilder()
         .WithSelectMenu(smb);
@@ -68,6 +66,92 @@ namespace BudgetBot.Modules
       });
     }
     #endregion
+
+    [SlashCommand("edit", "edit a transaction")]
+    public async Task EditCommand(string transactionId, string note)
+    {
+      // acknowlege discord interaction
+      await DeferAsync(ephemeral: true);
+
+      var parsed = long.TryParse(transactionId, out var id);
+      if (!parsed)
+      {
+        await ModifyOriginalResponseAsync(msg => msg.Content = "Please enter a valid transactionId");
+        return;
+      }
+
+      var transaction = await HelperFunctions.GetTransaction(_db, id);
+      transaction.Note = note;
+
+      await _db.SaveChangesAsync();
+      await transaction.UpdateChannel(Context.Guild);
+
+      await ModifyOriginalResponseAsync(msg =>
+      {
+        msg.Content = "success";
+      });
+    }
+
+    //[SlashCommand("categorize", "categorize a transaction")]
+    //public async Task CategorizeInteraction(string transactionId, string budgetName, string note = null)
+    //{
+    //  // acknowlege discord interaction
+    //  await DeferAsync(ephemeral: true);
+
+    //  var smb = new SelectMenuBuilder()
+    //    .WithPlaceholder("Categories")
+    //    .WithCustomId("categorize");
+
+    //  var parsed = long.TryParse(transactionId, out var id);
+    //  if (!parsed)
+    //  {
+    //    await ModifyOriginalResponseAsync(msg => msg.Content = "Please enter a valid transactionId");
+    //    return;
+    //  }
+    //  HelperFunctions.SelectedTransaction = await HelperFunctions.GetTransaction(_db, id);
+
+    //  if (HelperFunctions.SelectedTransaction == null)
+    //  {
+    //    await ModifyOriginalResponseAsync(msg => msg.Content = $"There is not transaction with the id: {id}");
+    //    return;
+    //  }
+
+    //  SocketGuild guild = Context.Guild;
+
+    //  ulong channelId = 0;
+    //  if (HelperFunctions.SelectedTransaction.BudgetCategory == null)
+    //    channelId = await HelperFunctions.GetChannelId(guild, "transactions-uncategorized", HelperFunctions.TransactionCategoryName);
+    //  else
+    //  {
+    //    await ModifyOriginalResponseAsync(msg => msg.Content = "You can't yet recategorize transactions bc I'm too lazy to implement it");
+    //    return;
+    //  }
+
+    //  var channel = guild.GetTextChannel(channelId);
+
+    //  var message = HelperFunctions.GetTransactionMessage(Context.Channel, id);
+    //  HelperFunctions.TransactionMessage = message;
+
+    //  var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now, Context.Guild);
+
+    //  if (monthlyBudget.Budgets?.Count == 0)
+    //  {
+    //    await ModifyOriginalResponseAsync(msg => msg.Content = "There are currently no budget categories. Create one with \"/budget create\"");
+    //    return;
+    //  }
+
+    //  foreach (var budget in monthlyBudget.Budgets)
+    //    smb.AddOption(budget.Name, budget.Name, $"Amount remaining in budget: ${budget.AmountRemaining}");
+
+    //  var builder = new ComponentBuilder()
+    //    .WithSelectMenu(smb);
+
+    //  await ModifyOriginalResponseAsync(msg =>
+    //  {
+    //    msg.Content = "Choose a category for this transaction";
+    //    msg.Components = builder.Build();
+    //  });
+    //}
 
     [Group("categorize", "categorize commands for transactions")]
     public class TransactionCategorizeCommands : InteractionModuleBase<SocketInteractionContext>
@@ -94,7 +178,7 @@ namespace BudgetBot.Modules
 
         SocketGuild guild = Context.Guild;
 
-        bucket.AddTransaction(transaction);
+        await bucket.AddTransaction(guild, transaction);
 
         // edit embed in buckets
         var channelId = await HelperFunctions.GetChannelId(guild, "transactions-categorized", HelperFunctions.TransactionCategoryName);
@@ -112,26 +196,26 @@ namespace BudgetBot.Modules
           await HelperFunctions.RefreshEmbeds(embeds, channel);
         }
 
-        // delete message in transactions-uncategorized channel (if applicable)
-        channelId = await HelperFunctions.GetChannelId(guild, "transactions-uncategorized", HelperFunctions.TransactionCategoryName);
-        channel = guild.GetTextChannel(channelId);
-        var messages = await channel.GetMessagesAsync(50).FlattenAsync();
+        //// delete message in transactions-uncategorized channel (if applicable)
+        //channelId = await HelperFunctions.GetChannelId(guild, "transactions-uncategorized", HelperFunctions.TransactionCategoryName);
+        //channel = guild.GetTextChannel(channelId);
+        //var messages = await channel.GetMessagesAsync(50).FlattenAsync();
 
-        IMessage messageInChannel = null;
-        foreach (var msg in messages)
-        {
-          if (!(msg is IMessage m))
-            continue;
+        //IMessage messageInChannel = null;
+        //foreach (var msg in messages)
+        //{
+        //  if (msg is not IMessage m)
+        //    continue;
 
-          if (HelperFunctions.GetTransactionIdFromEmbeds(m.Embeds.ToList()) == transactionId)
-          {
-            messageInChannel = m;
-            break;
-          }
-        }
+        //  if (HelperFunctions.GetTransactionIdFromEmbeds(m.Embeds.ToList()) == transactionId)
+        //  {
+        //    messageInChannel = m;
+        //    break;
+        //  }
+        //}
 
-        if (messageInChannel != null)
-          await channel.DeleteMessageAsync(messageInChannel);
+        //if (messageInChannel != null)
+        //  await channel.DeleteMessageAsync(messageInChannel);
 
         await _db.SaveChangesAsync();
         await bucket.UpdateChannel(_db, guild);

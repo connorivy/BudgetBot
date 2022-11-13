@@ -9,8 +9,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace BudgetBot.Modules
@@ -38,6 +36,13 @@ namespace BudgetBot.Modules
       }
       else
         return channel.Id;
+    }
+
+    public static async Task<SocketTextChannel> GetChannel(SocketGuild guild, string channelName, string guildCatName = null)
+    {
+      guildCatName ??= BudgetCategoryName;
+      var channelId = await GetChannelId(guild, channelName, guildCatName);
+      return guild.GetTextChannel(channelId);
     }
 
     public static async Task<ulong> GetChannelCategory(SocketGuild guild, string name)
@@ -198,6 +203,15 @@ namespace BudgetBot.Modules
       return transaction;
     }
 
+    public static async Task<BudgetCategory> GetBudgetCategory(BudgetBotEntities _db, long budgetId)
+    {
+      var budget = await _db.BudgetCategories
+        .AsAsyncEnumerable()
+        .Where(b => b.Id == budgetId)
+        .FirstOrDefaultAsync();
+      return budget;
+    }
+
     public static async Task<BudgetCategory> GetBudgetCategory(BudgetBotEntities _db, List<Embed> embeds)
     {
       if (embeds.Count != 1)
@@ -223,14 +237,57 @@ namespace BudgetBot.Modules
       var messages = (await channel.GetMessagesAsync(5).FlattenAsync() ?? new List<IMessage>()).ToList();
 
       if (messages.Count == 1 && messages.First() is RestUserMessage botMessage)
+      {
+        if (botMessage.Embeds == null || botMessage.Embeds.Count == 0)
+        {
+          await botMessage.DeleteAsync();
+          return null;
+        }
         return botMessage;
+      }
 
       return null;
     }
 
+    public static async Task<IMessage> GetTransactionMessage(SocketTextChannel channel, long id)
+    {
+      var messages = (await channel.GetMessagesAsync(50).FlattenAsync() ?? new List<IMessage>()).ToList();
+
+      foreach (var message in messages)
+      {
+        var messageId = GetTransactionIdFromEmbeds(message.Embeds.ToList());
+        if (messageId == id)
+          return message;
+      }
+
+      return null;
+    }
+
+    //public static async Task<List<Embed>> AddEmbed(ref RestUserMessage message, SocketTextChannel channel, Embed embedToAdd)
+    //{
+    //  if (message == null)
+    //    return null;
+
+    //  var embeds = message.Embeds.ToList();
+
+    //  if (embeds == null || embeds.Count == 0)
+    //    await message.DeleteAsync();
+
+    //  embeds.Add(ToEmbed());
+    //    var botMessage = await GetSoloMessage(channel);
+    //  await RefreshEmbeds(embeds, channel, botMessage);
+    //}
+
     public static async Task RefreshEmbeds(List<Embed> embeds, SocketTextChannel channel)
     {
       var botMessage = await GetSoloMessage(channel);
+      await RefreshEmbeds(embeds, channel, botMessage);
+    }
+
+    public static async Task RefreshEmbeds(List<Embed> embeds, SocketTextChannel channel, RestUserMessage botMessage)
+    {
+      if (embeds == null || embeds.Count == 0)
+        await botMessage.DeleteAsync();
 
       if (botMessage == null)
       {

@@ -10,8 +10,7 @@ using Discord.Interactions;
 using System.Linq;
 using BudgetBot.Modules;
 using BudgetBot.Database;
-using Discord.Net;
-using System.Collections.Generic;
+using Discord.Rest;
 
 namespace BudgetBot.Services
 {
@@ -172,119 +171,164 @@ namespace BudgetBot.Services
       switch(arg.Data.CustomId)
       {
         case "categorize":
-          await CategorizeSelectedOption(arg, arg.Data.Values.FirstOrDefault());
+          await RequestCategorizeSelectedOption(arg, arg.Data.Values.FirstOrDefault());
           return;
       }
       var text = string.Join(", ", arg.Data.Values);
       await arg.RespondAsync($"You have selected {text}");
     }
 
-    public async Task CategorizeSelectedOption(SocketMessageComponent arg, string value)
+    public async Task RequestCategorizeSelectedOption(SocketMessageComponent arg, string budgetId)
     {
       // acknowlege discord interaction
       await arg.DeferAsync(ephemeral: true);
-
-      SocketGuild guild = null;
-      if (arg.GuildId is ulong guildId)
-        guild = _client.GetGuild(guildId);
-
-      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now, guild);
-      var selectedBudget = monthlyBudget.Budgets.Where(b => b.Name == value).FirstOrDefault();
-      selectedBudget.AddTransaction(HelperFunctions.SelectedTransaction);
-
-      // send message to transactions-categorized
-      var channelId = await HelperFunctions.GetChannelId(guild, "transactions-categorized", HelperFunctions.TransactionCategoryName);
-      var channel = guild.GetTextChannel(channelId);
-      var botMessage = await HelperFunctions.GetSoloMessage(channel);
-
-      if (botMessage == null)
+      long.TryParse(budgetId, out long id);
+      if (HelperFunctions.TransactionMessage is SocketUserMessage userMessage)
       {
-        await channel.SendMessageAsync("", false, embeds: new Embed[] { HelperFunctions.SelectedTransaction.ToEmbed() });
+        var budget = await HelperFunctions.GetBudgetCategory(_db, id);
+        await userMessage.ModifyAsync(msg =>
+        {
+          msg.Content = $"{arg.User.Username} requested to categorize this transaction as {budget.Name}";
+          msg.Components = ButtonBuilder(arg.User.Id, HelperFunctions.SelectedTransaction.Id, budgetId);
+        });
       }
-      else
-      {
-        var embeds = botMessage.Embeds.ToList();
-        embeds.Add(HelperFunctions.SelectedTransaction.ToEmbed());
-        await HelperFunctions.RefreshEmbeds(embeds, channel);
-      }
-
-      // delete message in current channel
-      channelId = await HelperFunctions.GetChannelId(guild, "transactions-uncategorized", HelperFunctions.TransactionCategoryName);
-      channel = guild.GetTextChannel(channelId);
-      await channel.DeleteMessageAsync(HelperFunctions.TransactionMessage);
-
-      HelperFunctions.SelectedTransaction = null;
-      await _db.SaveChangesAsync();
-      await monthlyBudget.UpdateChannel(guild);
-
-      await arg.ModifyOriginalResponseAsync(x =>
-      {
-        x.Content = "";
-        x.Embed = selectedBudget.ToEmbed();
-        //x.Components = selectedBudget.GetComponents();
-      });
+      await arg.DeleteOriginalResponseAsync();
     }
+
+    public MessageComponent ButtonBuilder(ulong userId, long transactionId, string budgetId)
+    {
+      var approveBtn = new ButtonBuilder()
+      {
+        Label = "Approve",
+        CustomId = $"categorizeRequest-approve-{userId}-{transactionId}-{budgetId}",
+        Style = ButtonStyle.Primary
+      };
+
+      var rejectBtn = new ButtonBuilder()
+      {
+        Label = "Reject",
+        CustomId = $"categorizeRequest-reject-{userId}-{transactionId}-{budgetId}",
+        Style = ButtonStyle.Secondary
+      };
+
+      var builder = new ComponentBuilder()
+        .WithButton(approveBtn)
+        .WithButton(rejectBtn);
+
+      return builder.Build();
+    }
+
+    //public async Task CategorizeSelectedOption(SocketMessageComponent arg, string value)
+    //{
+    //  // acknowlege discord interaction
+    //  await arg.DeferAsync(ephemeral: true);
+
+    //  SocketGuild guild = null;
+    //  if (arg.GuildId is ulong guildId)
+    //    guild = _client.GetGuild(guildId);
+
+    //  var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now, guild);
+    //  var selectedBudget = monthlyBudget.Budgets.Where(b => b.Name == value).FirstOrDefault();
+    //  selectedBudget.AddTransaction(HelperFunctions.SelectedTransaction);
+
+    //  // send message to transactions-categorized
+    //  var channelId = await HelperFunctions.GetChannelId(guild, "transactions-categorized", HelperFunctions.TransactionCategoryName);
+    //  var channel = guild.GetTextChannel(channelId);
+    //  var botMessage = await HelperFunctions.GetSoloMessage(channel);
+
+    //  if (botMessage == null)
+    //  {
+    //    await channel.SendMessageAsync("", false, embeds: new Embed[] { HelperFunctions.SelectedTransaction.ToEmbed() });
+    //  }
+    //  else
+    //  {
+    //    var embeds = botMessage.Embeds.ToList();
+    //    embeds.Add(HelperFunctions.SelectedTransaction.ToEmbed());
+    //    await HelperFunctions.RefreshEmbeds(embeds, channel);
+    //  }
+
+    //  // delete message in current channel
+    //  channelId = await HelperFunctions.GetChannelId(guild, "transactions-uncategorized", HelperFunctions.TransactionCategoryName);
+    //  channel = guild.GetTextChannel(channelId);
+    //  await channel.DeleteMessageAsync(HelperFunctions.TransactionMessage);
+
+    //  HelperFunctions.SelectedTransaction = null;
+    //  await _db.SaveChangesAsync();
+    //  await monthlyBudget.UpdateChannel(guild);
+
+    //  await arg.ModifyOriginalResponseAsync(x =>
+    //  {
+    //    x.Content = "";
+    //    x.Embed = selectedBudget.ToEmbed();
+    //    //x.Components = selectedBudget.GetComponents();
+    //  });
+    //}
     #endregion
 
     #region button commands
     public async Task ButtonHandler(SocketMessageComponent arg)
     {
-      switch (arg.Data.CustomId)
+      var splitData = arg.Data.CustomId.Split('-');
+      switch (splitData[0])
       {
-        case "rollover":
-          await RolloverCommand(arg);
+        //case "rollover":
+        //  await RolloverCommand(arg);
+        //  return;
+        case "categorizeRequest":
+          await CategorizeRequest(arg);
           return;
       }
       var text = string.Join(", ", arg.Data);
       await arg.RespondAsync($"You have selected {text}");
     }
 
-    public async Task RolloverCommand(SocketMessageComponent arg)
+    public async Task CategorizeRequest(SocketMessageComponent arg)
     {
       // acknowlege discord interaction
       await arg.DeferAsync(ephemeral: true);
 
-      var budgetCategory = await HelperFunctions.GetBudgetCategory(_db, arg.Message.Embeds.ToList());
-      var nextMonth = budgetCategory.MonthlyBudget.Date.AddMonths(1);
+      // categorizeRequest-reject-{userId}-{transactionId}-{budgetId}
+      var splitData = arg.Data.CustomId.Split('-');
+
+      var approved = splitData[1] == "approve";
+      ulong.TryParse(splitData[2], out ulong userId);
+      long.TryParse(splitData[3], out long transactionId);
+      long.TryParse(splitData[4], out long budgetId);
 
       SocketGuild guild = null;
       if (arg.GuildId is ulong guildId)
         guild = _client.GetGuild(guildId);
 
-      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, nextMonth, guild);
-      var nextMonthBudgetCat = monthlyBudget.Budgets.Where(b => b.Name == budgetCategory.Name).FirstOrDefault();
-
-      if (nextMonthBudgetCat == null)
+      if (approved)
       {
-        nextMonthBudgetCat ??= new BudgetCategory()
+        if (userId == arg.User.Id)
         {
-          Name = budgetCategory.Name,
-          Balance = 0,
-          TargetAmount = budgetCategory.TargetAmount
-        };
-        monthlyBudget.Budgets.Add(nextMonthBudgetCat);
+          await arg.ModifyOriginalResponseAsync(m =>
+          {
+            m.Content += $"{new Emoji("\U0001f921")}";
+          });
+          return;
+        }
+
+        var budget = await HelperFunctions.GetBudgetCategory(_db, budgetId);
+        var transaction = await HelperFunctions.GetTransaction(_db, transactionId);
+        await budget.AddTransaction(guild, transaction);
+      }
+      else
+      {
+        var channel = await HelperFunctions.GetChannel(guild, "transactions-uncategorized", HelperFunctions.TransactionCategoryName);
+        var message = await HelperFunctions.GetTransactionMessage(channel, transactionId);
+        if (message is RestUserMessage msg)
+        {
+          await msg.ModifyAsync(m =>
+          {
+            m.Content = "";
+            m.Components = null;
+          });
+        }
       }
 
-      var transfer = new Transfer()
-      {
-        Amount = budgetCategory.AmountRemaining,
-        Date = DateTimeOffset.Now,
-        OriginalBudgetCategory = budgetCategory,
-        TargetBudgetCategory = nextMonthBudgetCat
-      };
-
-      transfer.Apply();
-      //_db.Update(budgetCategory);
-
-      await _db.Transfers.AddAsync(transfer);
       await _db.SaveChangesAsync();
-
-      await arg.ModifyOriginalResponseAsync(x =>
-      {
-        x.Content = "";
-        x.Embeds = new Embed[] { budgetCategory.ToEmbed(), nextMonthBudgetCat.ToEmbed() };
-        x.Components = nextMonthBudgetCat.GetComponents();
-      });
     }
 
     #endregion

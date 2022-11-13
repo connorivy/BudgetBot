@@ -2,14 +2,11 @@
 using Discord;
 using Discord.Rest;
 using Discord.WebSocket;
-using MailKit.Search;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace BudgetBot.Database
@@ -30,6 +27,59 @@ namespace BudgetBot.Database
     public Bucket Bucket { get; set; }
     public long? BudgetCategoryId { get; set; }
     public BudgetCategory BudgetCategory { get; set; }
+    public async Task DeleteMessageFromUncategorizedChannel(SocketGuild guild)
+    {
+      var message = await GetMessageFromChannel(guild, "transactions-uncategorized");
+      if (message is RestUserMessage msg)
+        await msg.DeleteAsync();
+    }
+    public async Task<IMessage> GetMessageFromChannel(SocketGuild guild, SocketTextChannel channel)
+    {
+      if (channel.Name == "transactions-uncategorized")
+        return await HelperFunctions.GetTransactionMessage(channel, Id);
+      else if (channel.Name == "transactions-categorized")
+        return await HelperFunctions.GetSoloMessage(channel);
+      return null;
+    }
+    public async Task<IMessage> GetMessageFromChannel(SocketGuild guild, string channelName)
+    {
+      var channel = await HelperFunctions.GetChannel(guild, channelName);
+      return await GetMessageFromChannel(guild, channel);
+    }
+    public async Task AddMessageToCategorizedChannel(SocketGuild guild)
+    {
+      var channel = await HelperFunctions.GetChannel(guild, "transactions-categorized");
+      var message = await GetMessageFromChannel(guild, channel);
+      if (message is RestUserMessage msg)
+      {
+        var embeds = msg.Embeds.ToList();
+        embeds.Add(ToEmbed());
+        await HelperFunctions.RefreshEmbeds(embeds, channel);
+      }
+      else
+        await channel.SendMessageAsync("", false, embeds: new Embed[] { ToEmbed() });
+    }
+    public async Task UpdateChannel(SocketGuild guild)
+    {
+      if (BudgetCategory != null)
+      {
+        var channel = await HelperFunctions.GetChannel(guild, "transactions-categorized");
+        var botMessage = await GetMessageFromChannel(guild, channel);
+
+        if (botMessage != null && botMessage is RestUserMessage msg)
+        {
+          var embeds = msg.Embeds.ToList();
+          await HelperFunctions.RefreshEmbeds(embeds, channel);
+        }
+      }
+      else
+      {
+        var message = await GetMessageFromChannel(guild, "transactions-uncategorized");
+
+        if (message is RestUserMessage msg)
+          await msg.ModifyAsync(m => m.Embed = ToEmbed());
+      }
+    }
 
     public Embed ToEmbed()
     {
@@ -45,6 +95,8 @@ namespace BudgetBot.Database
         sb.AppendLine($"Budget:\t\t{BudgetCategory.Name}");
       if (Bucket != null)
         sb.AppendLine($"Bucket:\t\t{Bucket.Name}");
+      if (!string.IsNullOrEmpty(Note))
+        sb.AppendLine($"Note:\t\t{Note}");
 
       embed.Description = sb.ToString();
       embed.Color = GetColor();

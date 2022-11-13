@@ -85,7 +85,7 @@ namespace BudgetBot.Database
 
     #region abstract methods
     public abstract decimal AmountRemaining { get; }
-    public abstract void AddTransaction(Transaction transaction);
+    public abstract Task AddTransaction(SocketGuild guild, Transaction transaction);
     public abstract decimal ColorProgress { get; }
     public abstract int ColorFloor { get; }
     #endregion
@@ -116,7 +116,7 @@ namespace BudgetBot.Database
 
     # region overrides
     public override decimal AmountRemaining => TargetAmount - Balance;
-    public override void AddTransaction(Transaction transaction)
+    public override async Task AddTransaction(SocketGuild guild, Transaction transaction)
     {
       if (transaction.Bucket != null)
       {
@@ -124,8 +124,14 @@ namespace BudgetBot.Database
           return;
         transaction.Bucket.Balance -= transaction.Amount;
       }
+      else if (transaction.BudgetCategory != null)
+        transaction.BudgetCategory.Balance -= transaction.Amount;
+      else if (transaction.BudgetCategory == null)
+        await transaction.DeleteMessageFromUncategorizedChannel(guild);
+
       transaction.Bucket = this;
       Balance += transaction.Amount;
+      await transaction.AddMessageToCategorizedChannel(guild);
     }
     public override decimal ColorProgress => Progress;
     public override int ColorFloor => 0;
@@ -197,7 +203,7 @@ namespace BudgetBot.Database
 
     # region overrides
     public override decimal AmountRemaining => IsIncome ? TargetAmount - Balance : Balance - TargetAmount;
-    public override void AddTransaction(Transaction transaction)
+    public override async Task AddTransaction(SocketGuild guild, Transaction transaction)
     {
       if (transaction.BudgetCategory != null)
       {
@@ -205,8 +211,12 @@ namespace BudgetBot.Database
           return;
         transaction.BudgetCategory.Balance -= transaction.Amount;
       }
+      else if (transaction.Bucket == null)
+        await transaction.DeleteMessageFromUncategorizedChannel(guild);
+
       transaction.BudgetCategory = this;
       Balance += transaction.Amount;
+      await transaction.AddMessageToCategorizedChannel(guild);
     }
     public override decimal ColorProgress => IsIncome ? Progress : 1 - Progress;
     public override int ColorFloor => 80; //add an offset between 100% budget and 101% budget colors

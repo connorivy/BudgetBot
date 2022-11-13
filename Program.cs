@@ -1,7 +1,5 @@
 ﻿using System;
 using Discord;
-using Discord.Net;
-using Discord.Commands;
 using Discord.WebSocket;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -13,8 +11,6 @@ using Serilog;
 using Discord.Interactions;
 using BudgetBot.Modules;
 using BudgetBot.Database;
-using static BudgetBot.Modules.BudgetCommands;
-using static BudgetBot.Modules.TransactionCommands;
 
 namespace BudgetBot
 {
@@ -119,9 +115,9 @@ namespace BudgetBot
         .AddScoped<BotCommands>()
         .AddScoped<BucketCommands>()
         .AddScoped<TransactionCommands>()
-        .AddScoped<TransactionCategorizeCommands>()
+        .AddScoped<TransactionCommands.TransactionCategorizeCommands>()
         .AddScoped<BudgetCommands>()
-        .AddScoped<BudgetTransferCommands>()
+        .AddScoped<BudgetCommands.BudgetTransferCommands>()
         .AddSingleton<MailListener>()
         .AddDbContext<BudgetBotEntities>()
         .AddLogging(configure => configure.AddSerilog());
