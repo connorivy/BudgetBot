@@ -45,7 +45,8 @@ namespace BudgetBot.Modules
       HelperFunctions.SelectedTransaction = await HelperFunctions.GetTransaction(_db, message.Embeds.ToList());
       HelperFunctions.TransactionMessage = message;
 
-      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, DateTimeOffset.Now, Context.Guild);
+      var date = HelperFunctions.SelectedTransaction.Date;
+      var monthlyBudget = await HelperFunctions.GetExistingMonthlyBudget(_db, date);
 
       if (monthlyBudget.Budgets?.Count == 0)
       {

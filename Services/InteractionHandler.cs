@@ -295,21 +295,21 @@ namespace BudgetBot.Services
       long.TryParse(splitData[3], out long transactionId);
       long.TryParse(splitData[4], out long budgetId);
 
+      if (userId == arg.User.Id)
+      {
+        await arg.ModifyOriginalResponseAsync(m =>
+        {
+          m.Content += $"{new Emoji("\U0001f921")}";
+        });
+        return;
+      }
+
       SocketGuild guild = null;
       if (arg.GuildId is ulong guildId)
         guild = _client.GetGuild(guildId);
 
       if (approved)
       {
-        if (userId == arg.User.Id)
-        {
-          await arg.ModifyOriginalResponseAsync(m =>
-          {
-            m.Content += $"{new Emoji("\U0001f921")}";
-          });
-          return;
-        }
-
         var budget = await HelperFunctions.GetBudgetCategory(_db, budgetId);
         var transaction = await HelperFunctions.GetTransaction(_db, transactionId);
         await budget.AddTransaction(guild, transaction);

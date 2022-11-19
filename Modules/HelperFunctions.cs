@@ -21,6 +21,8 @@ namespace BudgetBot.Modules
     public static string BudgetCategoryName = "Budgets";
     public static string TransactionCategoryName = "Transactions";
 
+
+    #region channelOperations
     public static async Task<ulong> GetChannelId(SocketGuild guild, string name, string guildCatName = null)
     {
       name = name.ToLower().Replace(" ", "-");
@@ -45,7 +47,7 @@ namespace BudgetBot.Modules
       return guild.GetTextChannel(channelId);
     }
 
-    public static async Task<ulong> GetChannelCategory(SocketGuild guild, string name)
+    private static async Task<ulong> GetChannelCategory(SocketGuild guild, string name)
     {
       var cat = guild.CategoryChannels.SingleOrDefault(x => x.Name == name);
       if (cat == null)
@@ -56,7 +58,9 @@ namespace BudgetBot.Modules
       else
         return cat.Id;
     }
+    #endregion
 
+    #region bucketOperations
     public async static Task<Bucket> GetExistingBucket(BudgetBotEntities _db, string name, SocketGuild guild = null)
     {
       var bucket = await _db.Buckets
@@ -64,13 +68,12 @@ namespace BudgetBot.Modules
           .Where(b => b.Name == name)
           .FirstOrDefaultAsync();
 
-      //if (bucket == null && guild != null)
-      //  bucket = await CreateBucket(_db, name, guild);
-
       return bucket;
     }
+    #endregion
 
-    public async static Task<MonthlyBudget> GetMonthlyBudget(BudgetBotEntities _db, DateTimeOffset date, SocketGuild guild = null)
+    #region monthlyBudgetOperations
+    public async static Task<MonthlyBudget> GetOrCreateMonthlyBudget(BudgetBotEntities _db, DateTimeOffset date, SocketGuild guild)
     {
       // cache the current budget
       //if (date.Month == _currentBudget?.Date.Month && date.Year == _currentBudget?.Date.Year)
@@ -86,18 +89,11 @@ namespace BudgetBot.Modules
       return budget;
     }
 
-    public async static Task<MonthlyBudget> GetMonthlyBudget(BudgetBotEntities _db, string channelName, SocketGuild guild = null)
+    public async static Task<MonthlyBudget> GetOrCreateMonthlyBudget(BudgetBotEntities _db, string channelName, SocketGuild guild)
     {
-      DateTime date = DateTime.Today;
-      var splitName = channelName.Split('-').ToList();
-      if (splitName.Count >= 3)
-      {
-        var year = DateTime.ParseExact(splitName[splitName.Count - 1], "yyyy", CultureInfo.InvariantCulture).Year;
-        var month = DateTime.ParseExact(splitName[splitName.Count - 2], "MMM", CultureInfo.InvariantCulture).Month;
-        date = new DateTime(year, month, 1);
-      }
+      var date = GetDateFromBudgetChannelName(_db, channelName);
 
-      return await GetMonthlyBudget(_db, date, guild);
+      return await GetOrCreateMonthlyBudget(_db, date, guild);
     }
 
     public async static Task<MonthlyBudget> GetExistingMonthlyBudget(BudgetBotEntities _db, DateTimeOffset date)
@@ -116,6 +112,26 @@ namespace BudgetBot.Modules
       }
 
       return budget;
+    }
+
+    public async static Task<MonthlyBudget> GetExistingMonthlyBudget(BudgetBotEntities _db, string channelName)
+    {
+      var date = GetDateFromBudgetChannelName(_db, channelName);
+      return await GetExistingMonthlyBudget(_db, date);
+    }
+
+    public static DateTime GetDateFromBudgetChannelName(BudgetBotEntities _db, string channelName)
+    {
+      DateTime date = DateTime.Today;
+      var splitName = channelName.Split('-').ToList();
+      if (splitName.Count >= 3)
+      {
+        var year = DateTime.ParseExact(splitName[splitName.Count - 1], "yyyy", CultureInfo.InvariantCulture).Year;
+        var month = DateTime.ParseExact(splitName[splitName.Count - 2], "MMM", CultureInfo.InvariantCulture).Month;
+        date = new DateTime(year, month, 1);
+      }
+
+      return date;
     }
 
     public async static Task<MonthlyBudget> CreateMonthlyBudget(BudgetBotEntities _db, DateTimeOffset date, SocketGuild guild)
@@ -154,6 +170,9 @@ namespace BudgetBot.Modules
       return monthlyBudget;
     }
 
+    #endregion
+
+    #region monthlyBudgetTemplateOperations
     public async static Task<MonthlyBudgetTemplate> GetDefaultBudgetTemplate(BudgetBotEntities _db)
     {
       var defaultTemplate = await _db.MonthlyBudgetTemplates
@@ -165,11 +184,9 @@ namespace BudgetBot.Modules
       return defaultTemplate;
     }
 
-    public static DateTimeOffset GetEndOfMonth(DateTimeOffset date)
-    {
-      return new DateTimeOffset(date.Year, date.Month, DateTime.DaysInMonth(date.Year, date.Month), 0, 0, 0, date.Offset);
-    }
+    #endregion
 
+    #region transactionOperations
     public static async Task<Transaction> GetTransaction(BudgetBotEntities _db, List<IEmbed> embeds)
     {
       var transactionId = GetTransactionIdFromEmbeds(embeds);
@@ -203,6 +220,23 @@ namespace BudgetBot.Modules
       return transaction;
     }
 
+    public static async Task<IMessage> GetTransactionMessage(SocketTextChannel channel, long id)
+    {
+      var messages = (await channel.GetMessagesAsync(50).FlattenAsync() ?? new List<IMessage>()).ToList();
+
+      foreach (var message in messages)
+      {
+        var messageId = GetTransactionIdFromEmbeds(message.Embeds.ToList());
+        if (messageId == id)
+          return message;
+      }
+
+      return null;
+    }
+
+    #endregion
+
+    #region budgetCategoryOperations
     public static async Task<BudgetCategory> GetBudgetCategory(BudgetBotEntities _db, long budgetId)
     {
       var budget = await _db.BudgetCategories
@@ -223,13 +257,22 @@ namespace BudgetBot.Modules
         var name = titleParts[0].Trim();
         var date = DateTimeOffset.Parse(titleParts[1].Trim());
 
-        var monthlyBudget = await GetMonthlyBudget(_db, date);
+        var monthlyBudget = await GetExistingMonthlyBudget(_db, date);
         var budgetCategory = monthlyBudget.Budgets.Where(b => b.Name == name).FirstOrDefault();
 
         return budgetCategory;
       }
 
       return null;
+    }
+
+    #endregion
+
+    #region miscOperations
+
+    public static DateTimeOffset GetEndOfMonth(DateTimeOffset date)
+    {
+      return new DateTimeOffset(date.Year, date.Month, DateTime.DaysInMonth(date.Year, date.Month), 0, 0, 0, date.Offset);
     }
 
     public static async Task<RestUserMessage> GetSoloMessage(SocketTextChannel channel)
@@ -248,35 +291,6 @@ namespace BudgetBot.Modules
 
       return null;
     }
-
-    public static async Task<IMessage> GetTransactionMessage(SocketTextChannel channel, long id)
-    {
-      var messages = (await channel.GetMessagesAsync(50).FlattenAsync() ?? new List<IMessage>()).ToList();
-
-      foreach (var message in messages)
-      {
-        var messageId = GetTransactionIdFromEmbeds(message.Embeds.ToList());
-        if (messageId == id)
-          return message;
-      }
-
-      return null;
-    }
-
-    //public static async Task<List<Embed>> AddEmbed(ref RestUserMessage message, SocketTextChannel channel, Embed embedToAdd)
-    //{
-    //  if (message == null)
-    //    return null;
-
-    //  var embeds = message.Embeds.ToList();
-
-    //  if (embeds == null || embeds.Count == 0)
-    //    await message.DeleteAsync();
-
-    //  embeds.Add(ToEmbed());
-    //    var botMessage = await GetSoloMessage(channel);
-    //  await RefreshEmbeds(embeds, channel, botMessage);
-    //}
 
     public static async Task RefreshEmbeds(List<Embed> embeds, SocketTextChannel channel)
     {
@@ -301,5 +315,7 @@ namespace BudgetBot.Modules
         msg.Embeds = embeds.ToArray();
       });
     }
+
+    #endregion
   }
 }

@@ -77,7 +77,6 @@ namespace BudgetBot.Services
       }
 
       return Task.CompletedTask;
-
     }
   }
 }

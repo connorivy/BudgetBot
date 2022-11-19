@@ -147,8 +147,8 @@ namespace BudgetBot.Database
     {
       var nextMonth = MonthlyBudget.Date.AddMonths(1);
 
-      var monthlyBudget = await HelperFunctions.GetMonthlyBudget(_db, nextMonth, guild);
-      var nextMonthBudgetCat = monthlyBudget.Budgets.Where(b => b.Name == Name).FirstOrDefault();
+      var nextMonthlyBudget = await HelperFunctions.GetOrCreateMonthlyBudget(_db, nextMonth, guild);
+      var nextMonthBudgetCat = nextMonthlyBudget.Budgets.Where(b => b.Name == Name).FirstOrDefault();
 
       if (nextMonthBudgetCat == null)
       {
@@ -156,9 +156,10 @@ namespace BudgetBot.Database
         {
           Name = Name,
           Balance = 0,
-          TargetAmount = TargetAmount
+          TargetAmount = TargetAmount,
+          StartingAmount = 0,
         };
-        monthlyBudget.Budgets.Add(nextMonthBudgetCat);
+        nextMonthlyBudget.Budgets.Add(nextMonthBudgetCat);
       }
 
       var transfer = new Transfer()
@@ -173,7 +174,7 @@ namespace BudgetBot.Database
 
       await _db.Transfers.AddAsync(transfer);
       await _db.SaveChangesAsync();
-      await monthlyBudget.UpdateChannel(guild);
+      await nextMonthlyBudget.UpdateChannel(guild);
     }
     public MessageComponent GetComponents()
     {

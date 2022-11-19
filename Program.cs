@@ -104,7 +104,6 @@ namespace BudgetBot
     {
       // this returns a ServiceProvider that is used later to call for those services
       // we can add types we have access to here, hence adding the new using statement:
-      // using csharpi.Services;
       // the config we build is also added, which comes in handy for setting the command prefix!
       var services = new ServiceCollection()
         .AddSingleton(_config)
@@ -118,6 +117,7 @@ namespace BudgetBot
         .AddScoped<TransactionCommands.TransactionCategorizeCommands>()
         .AddScoped<BudgetCommands>()
         .AddScoped<BudgetCommands.BudgetTransferCommands>()
+        //.AddScoped<BudgetCommands.BudgetCreateCommands>()
         .AddSingleton<MailListener>()
         .AddDbContext<BudgetBotEntities>()
         .AddLogging(configure => configure.AddSerilog());
