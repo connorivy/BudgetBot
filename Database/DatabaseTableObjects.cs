@@ -86,7 +86,10 @@ namespace BudgetBot.Database
       var sb = new StringBuilder();
       var embed = new EmbedBuilder();
 
-      embed.Title = $"Transaction : {Id}";
+      if (Merchant != null)
+        embed.Title = $"Transaction : {Id}";
+      else
+        embed.Title = $"Deposit : {Id}";
       sb.AppendLine($"Payment Method:\t{PaymentMethod}");
       sb.AppendLine($"Amount:\t\t${AbsAmount}");
       sb.AppendLine($"Merchant:\t\t{Merchant}");

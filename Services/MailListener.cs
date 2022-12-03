@@ -131,9 +131,12 @@ namespace BudgetBot.Services
         var doc = new HtmlDocument();
         doc.LoadHtml(html.Text);
 
+        bool isDeposit = false;
         string creditCardEnding = null;
+        string transactionAmountString = null;
         decimal transactionAmount = 0;
         string merchant = null;
+        IEnumerable<HtmlNode> tables = null;
 
         switch (message.Envelope.From.Mailboxes.FirstOrDefault().Address)
         {
@@ -141,16 +144,17 @@ namespace BudgetBot.Services
             switch (message.Envelope.Subject)
             {
               case "Credit card purchase exceeds your preset amount":
-                var tables = doc.DocumentNode.Descendants("table");
+                tables = doc.DocumentNode.Descendants("table");
                 foreach (var table in tables)
                 {
-                  if (table.ChildNodes.Count == 4)
-                  {
-                    creditCardEnding = table.ChildNodes[0].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Trim();
-                    var transactionAmountString = table.ChildNodes[1].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Replace("$", "").Trim();
-                    transactionAmount = Convert.ToDecimal(transactionAmountString) * -1;
-                    merchant = table.ChildNodes[2].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Trim();
-                  }
+                  if (table.ChildNodes.Count != 4)
+                    continue;
+                  
+                  creditCardEnding = table.ChildNodes[0].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Trim();
+                  transactionAmountString = table.ChildNodes[1].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Replace("$", "").Trim();
+                  transactionAmount = Convert.ToDecimal(transactionAmountString) * -1;
+                  merchant = table.ChildNodes[2].SelectNodes("td")[1].InnerText.Replace("\r\n", "").Trim();
+                  break;
                 }
                 break;
               case "Wells Fargo account update":
@@ -160,13 +164,62 @@ namespace BudgetBot.Services
                 break;
             }
             break;
+          case "no.reply.alerts@chase.com":
+            var subjectWords = message.Envelope.Subject.Split(' ');
+            if (subjectWords.Length < 3)
+              break;
+
+            int childNodeCount = 9;
+            int rowCount = 4;
+            if (subjectWords[2] == "direct")
+            {
+              isDeposit = true;
+              childNodeCount = 7;
+              rowCount = 3;
+            }
+
+            tables = doc.DocumentNode.Descendants("table");
+            foreach (var table in tables)
+            {
+              if (table.ChildNodes.Count != childNodeCount)
+                continue;
+              var childNodes = table.ChildNodes.Where(x => x.Name == "tr");
+              if (childNodes.Count() != rowCount)
+                continue;
+
+              try
+              {
+                creditCardEnding = childNodes.ElementAt(0).SelectNodes("td/table/tr/td")[1].InnerText.Replace("\r\n", "").Trim();
+                transactionAmountString = childNodes.ElementAt(isDeposit ? 2 : 3).SelectNodes("td/table/tr/td")[1].InnerText.Replace("\r\n", "").Replace("$", "").Trim();
+                transactionAmount = Convert.ToDecimal(transactionAmountString);
+                if (!isDeposit)
+                  merchant = childNodes.ElementAt(2).SelectNodes("td/table/tr/td")[1].InnerText.Replace("\r\n", "").Trim();
+              }
+              catch { continue; }
+              break;
+            }
+
+            if (subjectWords[2] == "transaction" || subjectWords[1] == "sent")
+              transactionAmount *= -1;
+            else if (subjectWords[2] == "direct")
+            { }
+            else
+            {
+              Console.WriteLine("Unrecogonized email subject line");
+            }
+            break;
           default:
             Console.WriteLine($"Unrecognized sender: {message.Envelope.From.Mailboxes.FirstOrDefault().Address}");
             break;
         }
 
-        if (creditCardEnding != null)
-          await _botCommands.NotifyOfTransaction(creditCardEnding, transactionAmount, merchant, message.Envelope.Date);
+        if (creditCardEnding != null && transactionAmount != 0)
+        {
+          if (isDeposit)
+            await _botCommands.NotifyOfTransaction(creditCardEnding, transactionAmount, merchant, message.Envelope.Date);
+          else
+            await _botCommands.NotifyOfTransaction(creditCardEnding, transactionAmount, merchant, message.Envelope.Date);
+        }
 
         client.Inbox.AddFlags(message.Index, MessageFlags.Seen, true);
       }

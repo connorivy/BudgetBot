@@ -45,5 +45,10 @@ namespace BudgetBot.Modules
 
       await channel.SendMessageAsync("", false, transaction.ToEmbed());
     }
+
+    public async Task NotifyOfDeposit(string creditCardEnding, decimal transactionAmount, DateTimeOffset? date)
+    {
+      await NotifyOfTransaction(creditCardEnding, transactionAmount, null, date);
+    }
   }
 }
