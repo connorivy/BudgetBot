@@ -155,12 +155,6 @@ namespace BudgetBot.Database
 
   public class BudgetCategory : BucketBase
   {
-    public enum BudgetType
-    {
-      budget,
-      income,
-      payment
-    }
     public long MonthlyBudgetId { get; set; }
     public MonthlyBudgetBase MonthlyBudget { get; set; }
     public bool IsIncome { get; set; }

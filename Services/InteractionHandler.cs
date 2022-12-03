@@ -197,11 +197,7 @@ namespace BudgetBot.Services
         var transaction = await HelperFunctions.GetTransaction(_db, HelperFunctions.SelectedTransaction.Id);
         await budget.AddTransaction(_db, guild, transaction);
 
-        await arg.ModifyOriginalResponseAsync(x =>
-        {
-          x.Content = "success";
-          x.Components = null;
-        });
+        await arg.DeleteOriginalResponseAsync();
         return;
       }
 
