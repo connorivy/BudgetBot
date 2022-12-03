@@ -183,15 +183,33 @@ namespace BudgetBot.Services
       // acknowlege discord interaction
       await arg.DeferAsync(ephemeral: true);
       long.TryParse(budgetId, out long id);
-      if (HelperFunctions.TransactionMessage is SocketUserMessage userMessage)
+      if (!(HelperFunctions.TransactionMessage is SocketUserMessage userMessage))
+        return;
+
+      var budget = await HelperFunctions.GetBudgetCategory(_db, id);
+
+      if (bool.Parse(_config["REQUIRE_APPROVAL"]) == false)
       {
-        var budget = await HelperFunctions.GetBudgetCategory(_db, id);
-        await userMessage.ModifyAsync(msg =>
+        SocketGuild guild = null;
+        if (arg.GuildId is ulong guildId)
+          guild = _client.GetGuild(guildId);
+
+        var transaction = await HelperFunctions.GetTransaction(_db, HelperFunctions.SelectedTransaction.Id);
+        await budget.AddTransaction(_db, guild, transaction);
+
+        await arg.ModifyOriginalResponseAsync(x =>
         {
-          msg.Content = $"{arg.User.Username} requested to categorize this transaction as {budget.Name}";
-          msg.Components = ButtonBuilder(arg.User.Id, HelperFunctions.SelectedTransaction.Id, budgetId);
+          x.Content = "success";
+          x.Components = null;
         });
+        return;
       }
+
+      await userMessage.ModifyAsync(msg =>
+      {
+        msg.Content = $"{arg.User.Username} requested to categorize this transaction as {budget.Name}";
+        msg.Components = ButtonBuilder(arg.User.Id, HelperFunctions.SelectedTransaction.Id, budgetId);
+      });
       await arg.DeleteOriginalResponseAsync();
     }
 
@@ -312,7 +330,7 @@ namespace BudgetBot.Services
       {
         var budget = await HelperFunctions.GetBudgetCategory(_db, budgetId);
         var transaction = await HelperFunctions.GetTransaction(_db, transactionId);
-        await budget.AddTransaction(guild, transaction);
+        await budget.AddTransaction(_db, guild, transaction);
       }
       else
       {

@@ -1,6 +1,7 @@
 ﻿using BudgetBot.Database;
 using Discord;
 using Discord.Interactions;
+using Discord.Net;
 using Discord.Rest;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
@@ -48,13 +49,18 @@ namespace BudgetBot.Modules
       var date = HelperFunctions.SelectedTransaction.Date;
       var monthlyBudget = await HelperFunctions.GetExistingMonthlyBudget(_db, date);
 
+      if (monthlyBudget == null)
+      {
+        await ModifyOriginalResponseAsync(msg => msg.Content = "There are currently no monthly budgets. Create one with \"/budget create-monthly\"");
+        return;
+      }
       if (monthlyBudget.Budgets?.Count == 0)
       {
         await ModifyOriginalResponseAsync(msg => msg.Content = "There are currently no budget categories. Create one with \"/budget create\"");
         return;
       }
 
-      foreach( var budget in monthlyBudget.Budgets)
+      foreach (var budget in monthlyBudget.Budgets)
         smb.AddOption(budget.Name, budget.Id.ToString(), $"Amount remaining in budget: ${budget.AmountRemaining}");
 
       var builder = new ComponentBuilder()
@@ -179,7 +185,7 @@ namespace BudgetBot.Modules
 
         SocketGuild guild = Context.Guild;
 
-        await bucket.AddTransaction(guild, transaction);
+        await bucket.AddTransaction(_db, guild, transaction);
 
         // edit embed in buckets
         var channelId = await HelperFunctions.GetChannelId(guild, "transactions-categorized", HelperFunctions.TransactionCategoryName);

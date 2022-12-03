@@ -11,7 +11,9 @@ using System.Linq;
 using System.Reflection.Metadata;
 using System.Security.Cryptography.Xml;
 using System.Text;
+using System.Threading.Channels;
 using System.Threading.Tasks;
+using static BudgetBot.Database.BudgetCategory;
 
 namespace BudgetBot.Modules
 {
@@ -36,7 +38,7 @@ namespace BudgetBot.Modules
     #endregion
 
     [SlashCommand("add", "add a new budget to the current budget")]
-    public async Task AddCommand(string name, decimal limit, bool isIncome = false)
+    public async Task AddCommand(string name, decimal limit, bool isIncome = false, string targetBucket = null)
     {
       // acknowlege discord interaction
       await DeferAsync(ephemeral: true);
@@ -46,7 +48,7 @@ namespace BudgetBot.Modules
       name = name.ToLower();
       limit = Math.Abs(limit);
 
-      var monthlyBudget = await HelperFunctions.GetExistingMonthlyBudget(_db, Context.Channel.Name);
+      var monthlyBudget = await HelperFunctions.GetExistingMonthlyBudgetOrTemplate(_db, Context.Channel.Name);
 
       if (monthlyBudget == null)
       {
@@ -61,7 +63,7 @@ namespace BudgetBot.Modules
 
       if (monthlyBudget.Budgets.Any(x => x.Name == name))
       {
-        sb.AppendLine($"There is already a budget named {name} for {monthlyBudget.Date:Y}");
+        sb.AppendLine($"There is already a budget named {name} in this channel");
         await ModifyOriginalResponseAsync(msg =>
         {
           msg.Content = sb.ToString();
@@ -79,12 +81,26 @@ namespace BudgetBot.Modules
         MonthlyBudget = monthlyBudget,
       };
 
+      if (!string.IsNullOrEmpty(targetBucket))
+      {
+        var bucket = await HelperFunctions.GetExistingBucket(_db, targetBucket);
+        if (bucket == null)
+        {
+          sb.AppendLine($"There is no bucket named {targetBucket}");
+          await ModifyOriginalResponseAsync(msg =>
+          {
+            msg.Content = sb.ToString();
+          });
+          return;
+        }
+
+        budget.TargetBucket = bucket;
+      }
+
       monthlyBudget.Budgets.Add(budget);
 
       await _db.SaveChangesAsync();
       await monthlyBudget.UpdateChannel(Context.Guild);
-
-      //await DeleteOriginalResponseAsync();
 
       await ModifyOriginalResponseAsync(msg =>
       {
@@ -178,6 +194,22 @@ namespace BudgetBot.Modules
         budget.TargetAmount = (bool)isIncome ? (decimal)limit : (decimal)limit * -1;
     }
 
+    [SlashCommand("create-monthly", "create a budget for this month")]
+    public async Task CreateMonthlyCommand()
+    {
+      // acknowlege discord interaction
+      await DeferAsync(ephemeral: true);
+
+      var sb = new StringBuilder();
+
+      var monthlyBudget = await HelperFunctions.GetOrCreateMonthlyBudget(_db, Context.Channel.Name, Context.Guild);
+      await _db.SaveChangesAsync();
+      await ModifyOriginalResponseAsync(msg =>
+      {
+        msg.Content = "success";
+      });
+    }
+
     [SlashCommand("create-template", "creates a new monthly budget template")]
     public async Task CreateCommand(string name, bool useCurrentBudget, bool isDefault)
     {
@@ -190,9 +222,12 @@ namespace BudgetBot.Modules
       var channel = await HelperFunctions.GetChannel(Context.Guild, name, HelperFunctions.BudgetCategoryName);
       var template = new MonthlyBudgetTemplate() { 
         Name = name, 
-        IsDefault = isDefault, 
         Budgets = new List<BudgetCategory>()
       };
+
+      if (isDefault)
+        await template.SetDefault(_db);
+
       var embeds = new List<Embed>();
 
       if (useCurrentBudget)

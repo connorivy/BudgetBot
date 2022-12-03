@@ -206,15 +206,15 @@ namespace BudgetBot.Database
     }
   }
 
-  public class MonthlyBudget
+  public class MonthlyBudgetBase
   {
     [Key]
-    public DateTimeOffset Date { get; set; }
+    public long Id { get; set; }
     private string _name;
-    public string Name 
-    { 
+    public string Name
+    {
       get => _name;
-      set => _name = value.ToLower().Replace(' ', '-'); 
+      set => _name = value.ToLower().Trim().Replace(' ', '-');
     }
     public List<BudgetCategory> Budgets { get; set; }
 
@@ -232,12 +232,26 @@ namespace BudgetBot.Database
       await HelperFunctions.RefreshEmbeds(embeds, channel);
     }
   }
-
-  public class MonthlyBudgetTemplate
+  
+  public class MonthlyBudget : MonthlyBudgetBase
   {
-    [Key]
-    public string Name { get; set; }
-    public bool IsDefault { get; set; }
-    public List<BudgetCategory> Budgets { get; set; }
+    public DateTimeOffset Date { get; set; }
+  }
+
+  public class MonthlyBudgetTemplate : MonthlyBudgetBase
+  {
+    public bool IsDefault { get; private set; } = false;
+
+    public async Task SetDefault(BudgetBotEntities _db)
+    {
+      var templates = await _db.MonthlyBudgetTemplates
+          .AsAsyncEnumerable()
+          .ToListAsync();
+      foreach (var template in templates)
+        template.IsDefault = false;
+
+      IsDefault = true;
+      await _db.SaveChangesAsync();
+    }
   }
 }

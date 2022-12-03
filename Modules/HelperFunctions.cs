@@ -5,6 +5,7 @@ using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -70,6 +71,26 @@ namespace BudgetBot.Modules
 
       return bucket;
     }
+
+    public async static Task<Bucket> GetTargetBucket(BudgetBotEntities _db, BudgetCategory budget)
+    {
+      if (budget.TargetBucket == null)
+      {
+        if (budget.TargetBucketId == null)
+          return null;
+
+        var bucket = await _db.Buckets
+          .AsAsyncEnumerable()
+          .Where(b => b.Id == budget.TargetBucketId)
+          .FirstOrDefaultAsync();
+        return bucket;
+      }
+
+      if (budget.TargetBucket is Bucket b)
+        return b;
+
+      else return null;
+    }
     #endregion
 
     #region monthlyBudgetOperations
@@ -83,6 +104,8 @@ namespace BudgetBot.Modules
         
       if (budget == null && guild != null)
         budget = await CreateMonthlyBudget(_db, date, guild);
+      else
+        await budget.UpdateChannel(guild);
 
       //_currentBudget = budget;
 
@@ -92,8 +115,9 @@ namespace BudgetBot.Modules
     public async static Task<MonthlyBudget> GetOrCreateMonthlyBudget(BudgetBotEntities _db, string channelName, SocketGuild guild)
     {
       var date = GetDateFromBudgetChannelName(_db, channelName);
-
-      return await GetOrCreateMonthlyBudget(_db, date, guild);
+      date ??= DateTime.Now;
+      
+      return await GetOrCreateMonthlyBudget(_db, (DateTime)date, guild);
     }
 
     public async static Task<MonthlyBudget> GetExistingMonthlyBudget(BudgetBotEntities _db, DateTimeOffset date)
@@ -117,12 +141,48 @@ namespace BudgetBot.Modules
     public async static Task<MonthlyBudget> GetExistingMonthlyBudget(BudgetBotEntities _db, string channelName)
     {
       var date = GetDateFromBudgetChannelName(_db, channelName);
-      return await GetExistingMonthlyBudget(_db, date);
+      if (date is DateTime dateTime)
+        return await GetExistingMonthlyBudget(_db, dateTime);
+
+      return null;
     }
 
-    public static DateTime GetDateFromBudgetChannelName(BudgetBotEntities _db, string channelName)
+    public async static Task<MonthlyBudget> GetExistingMonthlyBudget(BudgetBotEntities _db, BudgetCategory budget)
     {
-      DateTime date = DateTime.Today;
+      if (budget.MonthlyBudget == null)
+      {
+        var monthlyBudget = await _db.MonthlyBudgets
+          .AsAsyncEnumerable()
+          .Where(b => b.Id == budget.MonthlyBudgetId)
+          .FirstOrDefaultAsync();
+        return monthlyBudget;
+      }
+        
+      if (budget.MonthlyBudget is MonthlyBudget monthly)
+        return monthly;
+
+      else return null;
+
+    }
+
+    public async static Task<MonthlyBudgetBase> GetExistingMonthlyBudgetOrTemplate(BudgetBotEntities _db, string channelName)
+    {
+      var existingMonthlyBudgets = await GetExistingMonthlyBudget(_db, channelName);
+
+      if (existingMonthlyBudgets != null)
+        return existingMonthlyBudgets;
+
+
+      var date = GetDateFromBudgetChannelName(_db, channelName);
+      if (date is DateTime dateTime)
+        return await GetExistingMonthlyBudget(_db, dateTime);
+
+      return await GetExistingTemplate(_db, channelName);
+    }
+
+    private static DateTime? GetDateFromBudgetChannelName(BudgetBotEntities _db, string channelName)
+    {
+      DateTime? date = null;
       var splitName = channelName.Split('-').ToList();
       if (splitName.Count >= 3)
       {
@@ -139,12 +199,12 @@ namespace BudgetBot.Modules
       MonthlyBudget monthlyBudget = null;
       var defaultTemplate = await GetDefaultBudgetTemplate(_db);
 
-      var budgetName = $"Budget {date:MMM} {date:yyyy}";
+      var budgetName = GetChannelNameFromDate(date);
       var budgetsList = new List<BudgetCategory>();
       if (defaultTemplate != null)
       {
         budgetsList = defaultTemplate.Budgets;
-        budgetName = defaultTemplate.Name.Replace("MMM", date.ToString("MMM")).Replace("yyyy", date.ToString("yyyy"));
+        //budgetName = defaultTemplate.Name.Replace("MMM", date.ToString("MMM")).Replace("yyyy", date.ToString("yyyy"));
       }
       else
       {
@@ -168,6 +228,12 @@ namespace BudgetBot.Modules
       await monthlyBudget.UpdateChannel(guild);
 
       return monthlyBudget;
+    }
+
+    public static string GetChannelNameFromDate(DateTimeOffset date)
+    {
+      var budgetName = $"Budget {date:MMM} {date:yyyy}";
+      return budgetName.ToLower().Trim().Replace(' ', '-');
     }
 
     #endregion
@@ -268,6 +334,20 @@ namespace BudgetBot.Modules
 
     #endregion
 
+    #region templateOperations
+
+    public async static Task<MonthlyBudgetTemplate> GetExistingTemplate(BudgetBotEntities _db, string channelName)
+    {
+      var template = await _db.MonthlyBudgetTemplates
+          .AsAsyncEnumerable()
+          .Where(b => b.Name == channelName)
+          .FirstOrDefaultAsync();
+
+      return template;
+    }
+
+    #endregion
+
     #region miscOperations
 
     public static DateTimeOffset GetEndOfMonth(DateTimeOffset date)
@@ -300,14 +380,17 @@ namespace BudgetBot.Modules
 
     public static async Task RefreshEmbeds(List<Embed> embeds, SocketTextChannel channel, RestUserMessage botMessage)
     {
-      if (embeds == null || embeds.Count == 0)
-        await botMessage.DeleteAsync();
-
       if (botMessage == null)
       {
-        await channel.SendMessageAsync("", false, embeds: embeds.ToArray());
+        if (embeds.Count == 0)
+          await channel.SendMessageAsync("Welcome to your budget");
+        else
+          await channel.SendMessageAsync("", false, embeds: embeds.ToArray());
         return;
       }
+
+      if (embeds == null || embeds.Count == 0)
+        await botMessage.DeleteAsync();
 
       await botMessage.ModifyAsync(msg =>
       {

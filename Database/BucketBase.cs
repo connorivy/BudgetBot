@@ -7,7 +7,6 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 
 namespace BudgetBot.Database
 {
@@ -81,11 +80,43 @@ namespace BudgetBot.Database
 
       return new Color(red, green, 0);
     }
+    public async Task UpdateChannel(BudgetBotEntities _db, SocketGuild guild)
+    {
+      string channelName = null;
+
+      var embeds = new List<Embed>();
+      if (this is Bucket buc)
+      {
+        channelName = "Buckets";
+        var buckets = await _db.Buckets
+          .AsAsyncEnumerable()
+          .Take(50)
+          .ToListAsync();
+
+        foreach (var bucket in buckets)
+          embeds.Add(bucket.ToEmbed());
+      }
+      else if (this is BudgetCategory budg)
+      {
+        var monthlyBudget = await HelperFunctions.GetExistingMonthlyBudget(_db, budg);
+        channelName = monthlyBudget.Name;
+        var budgets = await _db.BudgetCategories
+          .AsAsyncEnumerable()
+          .Take(50)
+          .ToListAsync();
+        foreach (var budget in budgets)
+          embeds.Add(budget.ToEmbed());
+      }
+
+      var channelId = await HelperFunctions.GetChannelId(guild, channelName, HelperFunctions.BudgetCategoryName);
+      var channel = guild.GetTextChannel(channelId);
+      await HelperFunctions.RefreshEmbeds(embeds, channel);
+    }
     #endregion
 
     #region abstract methods
     public abstract decimal AmountRemaining { get; }
-    public abstract Task AddTransaction(SocketGuild guild, Transaction transaction);
+    public abstract Task AddTransaction(BudgetBotEntities _db, SocketGuild guild, Transaction transaction);
     public abstract decimal ColorProgress { get; }
     public abstract int ColorFloor { get; }
     #endregion
@@ -96,27 +127,10 @@ namespace BudgetBot.Database
     public DateTimeOffset TargetDate { get; set; }
     public TimeSpan TimeRemaining => TargetDate - DateTimeOffset.Now;
     public bool IsDebt { get; set; }
-    public async Task UpdateChannel(BudgetBotEntities _db, SocketGuild guild)
-    {
-      var channelId = await HelperFunctions.GetChannelId(guild, "Buckets", HelperFunctions.BudgetCategoryName);
-      var channel = guild.GetTextChannel(channelId);
-
-      var buckets = await _db.Buckets
-          .AsAsyncEnumerable()
-          .Take(50)
-          .Where(b => b.AmountRemaining > 0)
-          .ToListAsync();
-
-      var embeds = new List<Embed>();
-      foreach (var bucket in buckets)
-        embeds.Add(bucket.ToEmbed());
-
-      await HelperFunctions.RefreshEmbeds(embeds, channel);
-    }
 
     # region overrides
     public override decimal AmountRemaining => TargetAmount - Balance;
-    public override async Task AddTransaction(SocketGuild guild, Transaction transaction)
+    public override async Task AddTransaction(BudgetBotEntities _db, SocketGuild guild, Transaction transaction)
     {
       if (transaction.Bucket != null)
       {
@@ -132,6 +146,7 @@ namespace BudgetBot.Database
       transaction.Bucket = this;
       Balance += transaction.Amount;
       await transaction.AddMessageToCategorizedChannel(guild);
+      await _db.SaveChangesAsync();
     }
     public override decimal ColorProgress => Progress;
     public override int ColorFloor => 0;
@@ -140,12 +155,23 @@ namespace BudgetBot.Database
 
   public class BudgetCategory : BucketBase
   {
-    public DateTimeOffset MonthlyBudgetDate { get; set; }
-    public MonthlyBudget MonthlyBudget { get; set; }
+    public enum BudgetType
+    {
+      budget,
+      income,
+      payment
+    }
+    public long MonthlyBudgetId { get; set; }
+    public MonthlyBudgetBase MonthlyBudget { get; set; }
     public bool IsIncome { get; set; }
+    public long? TargetBucketId { get; set; }
+    public Bucket TargetBucket { get; set; }
     public async Task Rollover(BudgetBotEntities _db, SocketGuild guild)
     {
-      var nextMonth = MonthlyBudget.Date.AddMonths(1);
+      if (MonthlyBudget is not MonthlyBudget monthlyBudget)
+        return;
+
+      var nextMonth = monthlyBudget.Date.AddMonths(1);
 
       var nextMonthlyBudget = await HelperFunctions.GetOrCreateMonthlyBudget(_db, nextMonth, guild);
       var nextMonthBudgetCat = nextMonthlyBudget.Budgets.Where(b => b.Name == Name).FirstOrDefault();
@@ -174,6 +200,7 @@ namespace BudgetBot.Database
 
       await _db.Transfers.AddAsync(transfer);
       await _db.SaveChangesAsync();
+      await UpdateChannel(_db, guild);
       await nextMonthlyBudget.UpdateChannel(guild);
     }
     public MessageComponent GetComponents()
@@ -204,7 +231,7 @@ namespace BudgetBot.Database
 
     # region overrides
     public override decimal AmountRemaining => IsIncome ? TargetAmount - Balance : Balance - TargetAmount;
-    public override async Task AddTransaction(SocketGuild guild, Transaction transaction)
+    public override async Task AddTransaction(BudgetBotEntities _db, SocketGuild guild, Transaction transaction)
     {
       if (transaction.BudgetCategory != null)
       {
@@ -218,9 +245,41 @@ namespace BudgetBot.Database
       transaction.BudgetCategory = this;
       Balance += transaction.Amount;
       await transaction.AddMessageToCategorizedChannel(guild);
+      await _db.SaveChangesAsync();
+
+      var targetBucket = HelperFunctions.GetTargetBucket(_db, this);
+      if (targetBucket != null)
+      {
+        if (transaction.Bucket != null)
+          throw new InvalidOperationException("Transaction that is targeted to a bucket cannot be applied as a payment");
+
+        transaction.Bucket = TargetBucket;
+        TargetBucket.Balance += transaction.AbsAmount;
+
+        await transaction.Bucket.UpdateChannel(_db, guild);
+        await _db.SaveChangesAsync();
+      }
+
+      await UpdateChannel(_db, guild);
     }
     public override decimal ColorProgress => IsIncome ? Progress : 1 - Progress;
     public override int ColorFloor => 80; //add an offset between 100% budget and 101% budget colors
     #endregion
+  }
+
+  public class PaymentBudget : BudgetCategory
+  {
+    public long TargetBucketId { get; set; }
+    public Bucket TargetBucket { get; set; }
+    public async Task AddPayment(BudgetBotEntities _db, SocketGuild guild, Transaction transaction)
+    {
+      if (transaction.Bucket != null)
+        throw new InvalidOperationException("Transaction that is targeted to a bucket cannot be applied as a payment");
+
+      transaction.Bucket = TargetBucket;
+      TargetBucket.Balance += transaction.AbsAmount;
+      await transaction.Bucket.UpdateChannel(_db, guild);
+      await _db.SaveChangesAsync();
+    }
   }
 }
