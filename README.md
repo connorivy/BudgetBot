@@ -49,3 +49,5 @@ cp BudgetBot.db bin/Debug/net6.0/BudgetBot.db
  cp config.json bin/Release/net6.0/config.json
  dotnet bin/Release/net6.0/BudgetBot.dll
 ```
+
+If you want to leave the program running even when the ssh is disconnected, use [screen](https://raspberrypi.stackexchange.com/questions/8085/will-terminating-an-ssh-connection-also-terminate-any-program-running).
