@@ -87,9 +87,15 @@ namespace BudgetBot.Database
       var embed = new EmbedBuilder();
 
       if (Merchant != null)
+      {
         embed.Title = $"Transaction : {Id}";
+        embed.Color = GetColor();
+      }
       else
+      {
         embed.Title = $"Deposit : {Id}";
+        embed.Color = new Color(0, 0, 255);
+      }
       sb.AppendLine($"Payment Method:\t{PaymentMethod}");
       sb.AppendLine($"Amount:\t\t${AbsAmount}");
       sb.AppendLine($"Merchant:\t\t{Merchant}");
@@ -102,7 +108,6 @@ namespace BudgetBot.Database
         sb.AppendLine($"Note:\t\t{Note}");
 
       embed.Description = sb.ToString();
-      embed.Color = GetColor();
 
       return embed.Build();
     }
