@@ -100,11 +100,7 @@ namespace BudgetBot.Database
       {
         var monthlyBudget = await HelperFunctions.GetExistingMonthlyBudget(_db, budg);
         channelName = monthlyBudget.Name;
-        var budgets = await _db.BudgetCategories
-          .AsAsyncEnumerable()
-          .Take(50)
-          .ToListAsync();
-        foreach (var budget in budgets)
+        foreach (var budget in monthlyBudget.Budgets)
           embeds.Add(budget.ToEmbed());
       }
 
