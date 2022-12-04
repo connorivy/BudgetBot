@@ -61,16 +61,13 @@ namespace BudgetBot.Database
     }
     public async Task UpdateChannel(SocketGuild guild)
     {
-      if (BudgetCategory != null)
+      if (BudgetCategory != null || Bucket != null)
       {
         var channel = await HelperFunctions.GetChannel(guild, "transactions-categorized");
-        var botMessage = await GetMessageFromChannel(guild, channel);
+        var message = await GetMessageFromChannel(guild, "transactions-categorized");
 
-        if (botMessage != null && botMessage is RestUserMessage msg)
-        {
-          var embeds = msg.Embeds.ToList();
-          await HelperFunctions.RefreshEmbeds(embeds, channel);
-        }
+        if (message == null)
+          await channel.SendMessageAsync(embed: ToEmbed());
       }
       else
       {

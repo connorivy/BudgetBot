@@ -196,7 +196,6 @@ namespace BudgetBot.Modules
 
     public async static Task<MonthlyBudget> CreateMonthlyBudget(BudgetBotEntities _db, DateTimeOffset date, SocketGuild guild)
     {
-      MonthlyBudget monthlyBudget = null;
       var defaultTemplate = await GetDefaultBudgetTemplate(_db);
 
       var budgetName = GetChannelNameFromDate(date);
@@ -215,7 +214,7 @@ namespace BudgetBot.Modules
             budgetsList.Add(budget);
       }
 
-      monthlyBudget = new MonthlyBudget
+      var monthlyBudget = new MonthlyBudget
       {
         Date = GetEndOfMonth(date),
         Name = budgetName,
@@ -355,6 +354,11 @@ namespace BudgetBot.Modules
       return new DateTimeOffset(date.Year, date.Month, DateTime.DaysInMonth(date.Year, date.Month), 0, 0, 0, date.Offset);
     }
 
+    public static async Task<IEnumerable<IMessage>> GetMessages(SocketTextChannel channel)
+    {
+      return await channel.GetMessagesAsync().FlattenAsync() ?? new List<IMessage>();
+    }
+
     public static async Task<RestUserMessage> GetSoloMessage(SocketTextChannel channel)
     {
       var messages = (await channel.GetMessagesAsync(5).FlattenAsync() ?? new List<IMessage>()).ToList();
@@ -374,8 +378,32 @@ namespace BudgetBot.Modules
 
     public static async Task RefreshEmbeds(List<Embed> embeds, SocketTextChannel channel)
     {
-      var botMessage = await GetSoloMessage(channel);
-      await RefreshEmbeds(embeds, channel, botMessage);
+      var messages = await GetMessages(channel);
+
+      // to avoid annoying reappearance of bot profile when sending messages later
+      // delete all messages and resend them if there aren't already enough messages in the channel
+      if (embeds.Count > messages.Count())
+      {
+        foreach (var msg in messages)
+          await msg.DeleteAsync();
+        foreach (var embed in embeds)
+          await channel.SendMessageAsync(embed: embed);
+      }
+
+      // however, the above process is a bit expensive, so don't do it if you don't have to
+      else
+      {
+        for (int i = 0; i < embeds.Count; i++)
+          if (messages.ElementAt(i) is RestUserMessage msg)
+            await msg.ModifyAsync(m =>
+            {
+              m.Embed = embeds[i];
+            });
+
+        for (int i = embeds.Count; i < messages.Count(); i++)
+          if (messages.ElementAt(i) is RestUserMessage msg)
+            await msg.DeleteAsync();
+      }
     }
 
     public static async Task RefreshEmbeds(List<Embed> embeds, SocketTextChannel channel, RestUserMessage botMessage)

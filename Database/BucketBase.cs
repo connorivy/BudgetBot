@@ -241,14 +241,14 @@ namespace BudgetBot.Database
       await transaction.AddMessageToCategorizedChannel(guild);
       await _db.SaveChangesAsync();
 
-      var targetBucket = HelperFunctions.GetTargetBucket(_db, this);
+      var targetBucket = await HelperFunctions.GetTargetBucket(_db, this);
       if (targetBucket != null)
       {
         if (transaction.Bucket != null)
           throw new InvalidOperationException("Transaction that is targeted to a bucket cannot be applied as a payment");
 
-        transaction.Bucket = TargetBucket;
-        TargetBucket.Balance += transaction.AbsAmount;
+        transaction.Bucket = targetBucket;
+        targetBucket.Balance += transaction.AbsAmount;
 
         await transaction.Bucket.UpdateChannel(_db, guild);
         await _db.SaveChangesAsync();

@@ -191,7 +191,7 @@ namespace BudgetBot.Services
               {
                 creditCardEnding = childNodes.ElementAt(0).SelectNodes("td/table/tr/td")[1].InnerText.Replace("\r\n", "").Trim();
                 transactionAmountString = childNodes.ElementAt(isDeposit ? 2 : 3).SelectNodes("td/table/tr/td")[1].InnerText.Replace("\r\n", "").Replace("$", "").Trim();
-                transactionAmount = Convert.ToDecimal(transactionAmountString);
+                decimal.TryParse(transactionAmountString, out transactionAmount);
                 if (!isDeposit)
                   merchant = childNodes.ElementAt(2).SelectNodes("td/table/tr/td")[1].InnerText.Replace("\r\n", "").Trim();
               }
