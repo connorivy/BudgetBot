@@ -128,12 +128,7 @@ namespace BudgetBot.Modules
           .FirstOrDefaultAsync();
 
       if (budget != null)
-      {
-        budget.Budgets = await _db.BudgetCategories
-          .AsAsyncEnumerable()
-          .Where(b => b.MonthlyBudget == budget)
-          .ToListAsync();
-      }
+        budget.Budgets = await GetBudgetCategories(_db, budget);
 
       return budget;
     }
@@ -149,19 +144,22 @@ namespace BudgetBot.Modules
 
     public async static Task<MonthlyBudget> GetExistingMonthlyBudget(BudgetBotEntities _db, BudgetCategory budget)
     {
+      MonthlyBudget monthlyBudget = null;
       if (budget.MonthlyBudget == null)
-      {
-        var monthlyBudget = await _db.MonthlyBudgets
+        monthlyBudget = await _db.MonthlyBudgets
           .AsAsyncEnumerable()
           .Where(b => b.Id == budget.MonthlyBudgetId)
           .FirstOrDefaultAsync();
-        return monthlyBudget;
-      }
         
       if (budget.MonthlyBudget is MonthlyBudget monthly)
-        return monthly;
+        monthlyBudget = monthly;
 
-      else return null;
+      if (monthlyBudget == null)
+        return null;
+
+      monthlyBudget.Budgets = await GetBudgetCategories(_db, monthlyBudget);
+
+      return monthlyBudget;
 
     }
 
@@ -178,6 +176,14 @@ namespace BudgetBot.Modules
         return await GetExistingMonthlyBudget(_db, dateTime);
 
       return await GetExistingTemplate(_db, channelName);
+    }
+
+    public async static Task<List<BudgetCategory>> GetBudgetCategories(BudgetBotEntities _db, MonthlyBudget monthlyBudget)
+    {
+      return await _db.BudgetCategories
+          .AsAsyncEnumerable()
+          .Where(b => b.MonthlyBudget == monthlyBudget || b.MonthlyBudgetId == monthlyBudget.Id)
+          .ToListAsync();
     }
 
     private static DateTime? GetDateFromBudgetChannelName(BudgetBotEntities _db, string channelName)
@@ -376,7 +382,7 @@ namespace BudgetBot.Modules
       return null;
     }
 
-    public static async Task RefreshEmbeds(List<Embed> embeds, SocketTextChannel channel)
+    public static async Task RefreshChannel(List<Embed> embeds, SocketTextChannel channel)
     {
       var messages = await GetMessages(channel);
 
@@ -397,7 +403,7 @@ namespace BudgetBot.Modules
           if (messages.ElementAt(i) is RestUserMessage msg)
             await msg.ModifyAsync(m =>
             {
-              m.Embed = embeds[i];
+              m.Embed = embeds[^(i+1)];
             });
 
         for (int i = embeds.Count; i < messages.Count(); i++)

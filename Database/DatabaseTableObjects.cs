@@ -35,11 +35,7 @@ namespace BudgetBot.Database
     }
     public async Task<IMessage> GetMessageFromChannel(SocketGuild guild, SocketTextChannel channel)
     {
-      if (channel.Name == "transactions-uncategorized")
-        return await HelperFunctions.GetTransactionMessage(channel, Id);
-      else if (channel.Name == "transactions-categorized")
-        return await HelperFunctions.GetSoloMessage(channel);
-      return null;
+      return await HelperFunctions.GetTransactionMessage(channel, Id);
     }
     public async Task<IMessage> GetMessageFromChannel(SocketGuild guild, string channelName)
     {
@@ -54,7 +50,7 @@ namespace BudgetBot.Database
       {
         var embeds = msg.Embeds.ToList();
         embeds.Add(ToEmbed());
-        await HelperFunctions.RefreshEmbeds(embeds, channel);
+        await HelperFunctions.RefreshChannel(embeds, channel);
       }
       else
         await channel.SendMessageAsync("", false, embeds: new Embed[] { ToEmbed() });
@@ -234,7 +230,7 @@ namespace BudgetBot.Database
       foreach (var budget in Budgets)
         embeds.Add(budget.ToEmbed());
 
-      await HelperFunctions.RefreshEmbeds(embeds, channel);
+      await HelperFunctions.RefreshChannel(embeds, channel);
     }
   }
   

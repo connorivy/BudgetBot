@@ -124,7 +124,7 @@ namespace BudgetBot.Modules
         await _db.MonthlyBudgetTemplates.AddAsync(template);
         await _db.SaveChangesAsync();
 
-        await HelperFunctions.RefreshEmbeds(embeds, channel);
+        await HelperFunctions.RefreshChannel(embeds, channel);
       }
 
       #region non-command methods

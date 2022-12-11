@@ -99,14 +99,13 @@ namespace BudgetBot.Database
       else if (this is BudgetCategory budg)
       {
         var monthlyBudget = await HelperFunctions.GetExistingMonthlyBudget(_db, budg);
-        channelName = monthlyBudget.Name;
-        foreach (var budget in monthlyBudget.Budgets)
-          embeds.Add(budget.ToEmbed());
+        await monthlyBudget.UpdateChannel(guild);
+        return;
       }
 
       var channelId = await HelperFunctions.GetChannelId(guild, channelName, HelperFunctions.BudgetCategoryName);
       var channel = guild.GetTextChannel(channelId);
-      await HelperFunctions.RefreshEmbeds(embeds, channel);
+      await HelperFunctions.RefreshChannel(embeds, channel);
     }
     #endregion
 

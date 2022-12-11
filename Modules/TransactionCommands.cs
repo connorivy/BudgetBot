@@ -186,45 +186,8 @@ namespace BudgetBot.Modules
         SocketGuild guild = Context.Guild;
 
         await bucket.AddTransaction(_db, guild, transaction);
-
-        // edit embed in buckets
-        var channelId = await HelperFunctions.GetChannelId(guild, "transactions-categorized", HelperFunctions.TransactionCategoryName);
-        var channel = guild.GetTextChannel(channelId);
-        var botMessage = await HelperFunctions.GetSoloMessage(channel);
-
-        if (botMessage == null)
-        {
-          await channel.SendMessageAsync("", false, embeds: new Embed[] { transaction.ToEmbed() });
-        }
-        else
-        {
-          var embeds = botMessage.Embeds.ToList();
-          embeds.Add(transaction.ToEmbed());
-          await HelperFunctions.RefreshEmbeds(embeds, channel);
-        }
-
-        //// delete message in transactions-uncategorized channel (if applicable)
-        //channelId = await HelperFunctions.GetChannelId(guild, "transactions-uncategorized", HelperFunctions.TransactionCategoryName);
-        //channel = guild.GetTextChannel(channelId);
-        //var messages = await channel.GetMessagesAsync(50).FlattenAsync();
-
-        //IMessage messageInChannel = null;
-        //foreach (var msg in messages)
-        //{
-        //  if (msg is not IMessage m)
-        //    continue;
-
-        //  if (HelperFunctions.GetTransactionIdFromEmbeds(m.Embeds.ToList()) == transactionId)
-        //  {
-        //    messageInChannel = m;
-        //    break;
-        //  }
-        //}
-
-        //if (messageInChannel != null)
-        //  await channel.DeleteMessageAsync(messageInChannel);
-
         await _db.SaveChangesAsync();
+
         await bucket.UpdateChannel(_db, guild);
 
         await ModifyOriginalResponseAsync(msg =>
